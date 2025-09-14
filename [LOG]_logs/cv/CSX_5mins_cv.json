@@ -1,0 +1,161 @@
+{
+  "embargo": 16,
+  "ev_at_recommended": {
+    "folds_covered": 2,
+    "mean": 1.076923076923077,
+    "per_fold": [
+      3.0,
+      -0.846153846153846
+    ],
+    "std": 2.7196414661021056
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "n_test": 500,
+      "n_train": 2268,
+      "pr_auc": 0.10160700905720552,
+      "roc_auc": 0.5388621794871795,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_test": 500,
+      "n_train": 2768,
+      "pr_auc": 0.08122600803693052,
+      "roc_auc": 0.7441211052322163,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_test": 500,
+      "n_train": 3268,
+      "pr_auc": 0.3148621966714148,
+      "roc_auc": 0.789387659798027,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_test": 500,
+      "n_train": 3768,
+      "pr_auc": 0.26195246610080536,
+      "roc_auc": 0.6858080393765382,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_test": 500,
+      "n_train": 4268,
+      "pr_auc": 0.19137900691954343,
+      "roc_auc": 0.7310859988507948,
+      "thresholds": [
+        {
+          "ev": -0.846153846153846,
+          "n_trades": 13,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  ],
+  "metrics_mean": {
+    "pr_auc": 0.19020533735717993,
+    "roc_auc": 0.6978529965489512
+  },
+  "metrics_std": {
+    "pr_auc": 0.10051681271549344,
+    "roc_auc": 0.09623788989075134
+  },
+  "n_splits": 5,
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "best_oof_by_ev_lb": {
+        "ev": -0.5714285714285715,
+        "ev_lb": -1.4139406044945448,
+        "hit_rate": 0.2857142857142857,
+        "hit_rate_lb": 0.11721187910109102,
+        "hits": 4,
+        "n_trades": 14,
+        "thr": 0.8
+      },
+      "oof_thresholds": [
+        {
+          "ev": -0.5714285714285715,
+          "ev_lb": -1.4139406044945448,
+          "hit_rate": 0.2857142857142857,
+          "hit_rate_lb": 0.11721187910109102,
+          "hits": 4,
+          "n_trades": 14,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "ev_lb": -2.0,
+          "hit_rate": NaN,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  },
+  "purge": 16,
+  "recommended_by": null,
+  "recommended_threshold": null,
+  "scheme": "expanding",
+  "test_size": 500,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "ticker": "CSX",
+  "timeframe": "5mins"
+}

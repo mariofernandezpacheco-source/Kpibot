@@ -1,0 +1,163 @@
+{
+  "embargo": 16,
+  "ev_at_recommended": {
+    "folds_covered": 2,
+    "mean": 1.59375,
+    "per_fold": [
+      3.0,
+      0.1875
+    ],
+    "std": 1.988737822087165
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "n_test": 500,
+      "n_train": 2268,
+      "pr_auc": 0.43527401590227144,
+      "roc_auc": 0.8287365018226839,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_test": 500,
+      "n_train": 2768,
+      "pr_auc": 0.305555680571469,
+      "roc_auc": 0.7717296129823128,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 2,
+          "thr": 0.8
+        },
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_test": 500,
+      "n_train": 3268,
+      "pr_auc": 0.27036105986033454,
+      "roc_auc": 0.796036877394636,
+      "thresholds": [
+        {
+          "ev": 0.1875,
+          "n_trades": 16,
+          "thr": 0.8
+        },
+        {
+          "ev": -0.3333333333333335,
+          "n_trades": 6,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_test": 500,
+      "n_train": 3768,
+      "pr_auc": 0.3141033099409849,
+      "roc_auc": 0.859621052631579,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_test": 500,
+      "n_train": 4268,
+      "pr_auc": 0.1902716506561924,
+      "roc_auc": 0.7529619503303714,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  ],
+  "metrics_mean": {
+    "pr_auc": 0.30311314338625045,
+    "roc_auc": 0.8018171990323166
+  },
+  "metrics_std": {
+    "pr_auc": 0.08859902289223376,
+    "roc_auc": 0.042986755611248366
+  },
+  "n_splits": 5,
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "best_oof_by_ev_lb": {
+        "ev": 0.5,
+        "ev_lb": -0.5484648020510003,
+        "hit_rate": 0.5,
+        "hit_rate_lb": 0.2903070395897999,
+        "hits": 9,
+        "n_trades": 18,
+        "thr": 0.8
+      },
+      "oof_thresholds": [
+        {
+          "ev": 0.5,
+          "ev_lb": -0.5484648020510003,
+          "hit_rate": 0.5,
+          "hit_rate_lb": 0.2903070395897999,
+          "hits": 9,
+          "n_trades": 18,
+          "thr": 0.8
+        },
+        {
+          "ev": 0.1428571428571428,
+          "ev_lb": -1.2089153886868658,
+          "hit_rate": 0.42857142857142855,
+          "hit_rate_lb": 0.15821692226262685,
+          "hits": 3,
+          "n_trades": 7,
+          "thr": 0.9
+        }
+      ]
+    }
+  },
+  "purge": 16,
+  "recommended_by": null,
+  "recommended_threshold": null,
+  "scheme": "expanding",
+  "test_size": 500,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "ticker": "UBER",
+  "timeframe": "5mins"
+}

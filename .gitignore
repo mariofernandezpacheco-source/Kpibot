@@ -1,0 +1,25 @@
+﻿# Entorno / IDE
+.venv/
+.env
+.idea/
+
+# Datos / modelos / logs (ignora contenido pero permite .gitkeep)
+[DAT]_data/*
+![DAT]_data/.gitkeep
+
+[TRN]_models/*
+![TRN]_models/.gitkeep
+
+[LOG]_logs/*
+![LOG]_logs/.gitkeep
+
+[LOG]_mlruns/*
+![LOG]_mlruns/.gitkeep
+
+# Ficheros pesados/temporales
+*.csv
+*.parquet
+*.tmp
+*.log
+.DS_Store
+Thumbs.db

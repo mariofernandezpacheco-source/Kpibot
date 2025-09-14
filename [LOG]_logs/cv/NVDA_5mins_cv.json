@@ -1,0 +1,162 @@
+{
+  "embargo": 16,
+  "ev_at_recommended": {
+    "folds_covered": 1,
+    "mean": -0.75,
+    "per_fold": [
+      -0.75
+    ],
+    "std": NaN
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "n_test": 500,
+      "n_train": 2268,
+      "pr_auc": 0.19065986711301908,
+      "roc_auc": 0.7579826046348724,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_test": 500,
+      "n_train": 2768,
+      "pr_auc": 0.5121223628813445,
+      "roc_auc": 0.8921225098955292,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_test": 500,
+      "n_train": 3268,
+      "pr_auc": 0.20965039537551894,
+      "roc_auc": 0.8316252837196506,
+      "thresholds": [
+        {
+          "ev": -1.0,
+          "n_trades": 5,
+          "thr": 0.8
+        },
+        {
+          "ev": -0.75,
+          "n_trades": 4,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_test": 500,
+      "n_train": 3768,
+      "pr_auc": 0.13870083939401584,
+      "roc_auc": 0.7364320728291317,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_test": 500,
+      "n_train": 4268,
+      "pr_auc": 0.18034509986248823,
+      "roc_auc": 0.7468781332604139,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  ],
+  "metrics_mean": {
+    "pr_auc": 0.24629571292527733,
+    "roc_auc": 0.7930081208679196
+  },
+  "metrics_std": {
+    "pr_auc": 0.1508543789868224,
+    "roc_auc": 0.06684040532264293
+  },
+  "n_splits": 5,
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "best_oof_by_ev_lb": {
+        "ev": -0.75,
+        "ev_lb": -1.7720696867768189,
+        "hit_rate": 0.25,
+        "hit_rate_lb": 0.045586062644636216,
+        "hits": 1,
+        "n_trades": 4,
+        "thr": 0.9
+      },
+      "oof_thresholds": [
+        {
+          "ev": -1.0,
+          "ev_lb": -1.8188841951510626,
+          "hit_rate": 0.2,
+          "hit_rate_lb": 0.036223160969787456,
+          "hits": 1,
+          "n_trades": 5,
+          "thr": 0.8
+        },
+        {
+          "ev": -0.75,
+          "ev_lb": -1.7720696867768189,
+          "hit_rate": 0.25,
+          "hit_rate_lb": 0.045586062644636216,
+          "hits": 1,
+          "n_trades": 4,
+          "thr": 0.9
+        }
+      ]
+    }
+  },
+  "purge": 16,
+  "recommended_by": null,
+  "recommended_threshold": null,
+  "scheme": "expanding",
+  "test_size": 500,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "ticker": "NVDA",
+  "timeframe": "5mins"
+}

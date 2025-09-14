@@ -1,0 +1,163 @@
+{
+  "embargo": 16,
+  "ev_at_recommended": {
+    "folds_covered": 2,
+    "mean": 3.0,
+    "per_fold": [
+      3.0,
+      3.0
+    ],
+    "std": 0.0
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "n_test": 500,
+      "n_train": 2268,
+      "pr_auc": 0.28287301843149426,
+      "roc_auc": 0.81234183375511,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_test": 500,
+      "n_train": 2768,
+      "pr_auc": 0.37897146357264677,
+      "roc_auc": 0.7720613522250498,
+      "thresholds": [
+        {
+          "ev": 1.75,
+          "n_trades": 8,
+          "thr": 0.8
+        },
+        {
+          "ev": 3.0,
+          "n_trades": 4,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_test": 500,
+      "n_train": 3268,
+      "pr_auc": 0.3297010940125151,
+      "roc_auc": 0.8437052631578947,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_test": 500,
+      "n_train": 3768,
+      "pr_auc": 0.21492526916037175,
+      "roc_auc": 0.6789718348372984,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.8
+        },
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_test": 500,
+      "n_train": 4268,
+      "pr_auc": 0.2566470760662329,
+      "roc_auc": 0.7255207319447148,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  ],
+  "metrics_mean": {
+    "pr_auc": 0.29262358424865215,
+    "roc_auc": 0.7665202031840137
+  },
+  "metrics_std": {
+    "pr_auc": 0.063751683970607,
+    "roc_auc": 0.06601805261845971
+  },
+  "n_splits": 5,
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "best_oof_by_ev_lb": {
+        "ev": 3.0,
+        "ev_lb": 0.8275425262395948,
+        "hit_rate": 1.0,
+        "hit_rate_lb": 0.565508505247919,
+        "hits": 5,
+        "n_trades": 5,
+        "thr": 0.9
+      },
+      "oof_thresholds": [
+        {
+          "ev": 2.0000000000000004,
+          "ev_lb": 0.4507842336036172,
+          "hit_rate": 0.8,
+          "hit_rate_lb": 0.49015684672072346,
+          "hits": 8,
+          "n_trades": 10,
+          "thr": 0.8
+        },
+        {
+          "ev": 3.0,
+          "ev_lb": 0.8275425262395948,
+          "hit_rate": 1.0,
+          "hit_rate_lb": 0.565508505247919,
+          "hits": 5,
+          "n_trades": 5,
+          "thr": 0.9
+        }
+      ]
+    }
+  },
+  "purge": 16,
+  "recommended_by": null,
+  "recommended_threshold": null,
+  "scheme": "expanding",
+  "test_size": 500,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "ticker": "JBL",
+  "timeframe": "5mins"
+}

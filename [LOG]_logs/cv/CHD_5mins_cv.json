@@ -1,0 +1,163 @@
+{
+  "embargo": 16,
+  "ev_at_recommended": {
+    "folds_covered": 4,
+    "mean": 1.125,
+    "per_fold": [
+      -2.0,
+      0.5,
+      3.0,
+      3.0
+    ],
+    "std": 2.3935677693908453
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "n_test": 500,
+      "n_train": 2268,
+      "pr_auc": 0.13131666398436648,
+      "roc_auc": 0.7116596638655462,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 8,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_test": 500,
+      "n_train": 2768,
+      "pr_auc": 0.31150987839411864,
+      "roc_auc": 0.8252083333333333,
+      "thresholds": [
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_test": 500,
+      "n_train": 3268,
+      "pr_auc": 0.23575574047395517,
+      "roc_auc": 0.7250125146003671,
+      "thresholds": [
+        {
+          "ev": 0.5,
+          "n_trades": 2,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_test": 500,
+      "n_train": 3768,
+      "pr_auc": 0.3083836314139541,
+      "roc_auc": 0.8744791666666667,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_test": 500,
+      "n_train": 4268,
+      "pr_auc": 0.266006415292924,
+      "roc_auc": 0.674052818959562,
+      "thresholds": [
+        {
+          "ev": 3.0,
+          "n_trades": 1,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  ],
+  "metrics_mean": {
+    "pr_auc": 0.25059446591186363,
+    "roc_auc": 0.7620824994850951
+  },
+  "metrics_std": {
+    "pr_auc": 0.07371428816096733,
+    "roc_auc": 0.08408887036531318
+  },
+  "n_splits": 5,
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "best_oof_by_ev_lb": {
+        "ev": -0.75,
+        "ev_lb": -1.5552998018551931,
+        "hit_rate": 0.25,
+        "hit_rate_lb": 0.08894003962896137,
+        "hits": 3,
+        "n_trades": 12,
+        "thr": 0.8
+      },
+      "oof_thresholds": [
+        {
+          "ev": -0.75,
+          "ev_lb": -1.5552998018551931,
+          "hit_rate": 0.25,
+          "hit_rate_lb": 0.08894003962896137,
+          "hits": 3,
+          "n_trades": 12,
+          "thr": 0.8
+        },
+        {
+          "ev": -2.0,
+          "ev_lb": -2.0,
+          "hit_rate": NaN,
+          "n_trades": 0,
+          "thr": 0.9
+        }
+      ]
+    }
+  },
+  "purge": 16,
+  "recommended_by": null,
+  "recommended_threshold": null,
+  "scheme": "expanding",
+  "test_size": 500,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "ticker": "CHD",
+  "timeframe": "5mins"
+}

@@ -1,0 +1,25 @@
+{
+  "class_order": [
+    0,
+    1,
+    2
+  ],
+  "days_history": 90,
+  "feature_set": "core+vol",
+  "features": [
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "atr_14",
+    "rsi_14"
+  ],
+  "label_map_mode": "multiclass_3way",
+  "model_type": "xgb",
+  "seed": 42,
+  "sl_multiplier": 2.0,
+  "time_limit_candles": 16,
+  "timeframe": "5mins",
+  "tp_multiplier": 3.0
+}

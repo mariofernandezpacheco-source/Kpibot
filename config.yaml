@@ -1,0 +1,109 @@
+paths:
+  data: "[DAT]_data"
+  models: "[TRN]_models"
+  logs: "[LOG]_logs"
+  config: "[CFG]_config"
+
+market:
+  tz_ui: "Europe/Madrid"
+  tz_internal: "UTC"
+  calendar: "XNYS"
+  timeframe_default: "5mins"
+  bar_size_by_tf: {"5mins": "5 mins", "10mins": "10 mins"}
+  candle_size_min_by_tf: {"5mins": 5, "10mins": 10}
+
+strategy:
+  tp_multiplier: 3.0
+  sl_multiplier: 2.0
+  threshold_default: 0.8
+  threshold_min: 0.55
+  threshold_max: 0.95
+  close_eod: true
+
+labels:
+  label_window: 5
+  time_limit_candles: 16
+  label_map_mode: "multiclass_3way"  # "multiclass_3way" | "binary_up_vs_rest"
+
+research:
+  n_splits_cv: 5
+  days_of_data: 90
+  cv_dir: "03_logs/cv"
+  use_cv_threshold_first: true
+  cv_test_size: 500
+  cv_scheme: "expanding"     # "expanding" | "rolling"
+  cv_embargo: -1             # -1 => usa time_limit_candles
+  cv_purge: -1               # -1 => usa max(time_limit_candles, label_window)
+  cv_threshold_grid: [0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9]
+  cv_min_trades_per_fold: 5
+  cv_min_folds_covered: 3
+  cv_min_total_trades: 100
+
+trading:
+  capital_per_trade: 1000.0
+  commission_per_trade: 0.35
+  allow_short: true
+  prefer_stronger_side: true
+
+mlflow:
+  enabled: true
+  # Si dejaste mlruns como carpeta separada:
+  tracking_uri: "file:./[LOG]_mlruns"
+  # O si lo metiste dentro de [LOG]_logs:
+  # tracking_uri: "file:./[LOG]_logs/mlruns"
+  experiment: "PHIBOT"
+  tags:
+    project: "phibot"
+    owner: "research"
+
+ib:
+  host: "127.0.0.1"
+  port: 4004
+  client_id: 11
+  max_retries: 5
+  backoff_min_s: 0.5
+  backoff_max_s: 8.0
+  max_concurrent: 1
+  circuit_fail_threshold: 10
+  circuit_open_seconds: 30
+  retry_attempts: 3
+  retry_backoff_s: 2.0
+  probe_head_on_fail: true
+  alt_what_to_show: ["TRADES", "MIDPOINT"]
+  market_data_type: 1
+  duration_live: "3 D"
+  live_batch_size: 10
+  max_rps: 2.0
+  request_pause_ms: 0
+  batch_pause_s: 2.0
+  timeout_s: 300
+
+parquet:
+  enabled: true
+  base_path: "dataset"
+  compression: "zstd"
+  engine: "pyarrow"
+  files_per_partition: 1
+
+storage:
+  write_csv: true
+  write_parquet: true
+  csv_keep_last_days: 0
+
+logging:
+  level: "INFO"
+  json: true
+  console_pretty: true
+  dir: "03_logs/structured"
+  rotate_bytes: 52428800   # 50MB
+  backup_count: 20
+  include_tracebacks: true
+
+reproducibility:
+  seed: 42
+  pythonhashseed: true
+  deterministic: true
+  n_jobs_train: 1
+  n_jobs_cv: 1
+  record_versions: true
+  record_to: "03_logs/env_versions.json"
