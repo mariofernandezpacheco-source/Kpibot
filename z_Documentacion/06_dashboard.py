@@ -1190,7 +1190,7 @@ with tab6:
     # Comando base (plantilla)
     base = [
         "python",
-        "[RSH]_Scenarios.py",
+        "RSH_Scenarios.py",
         "--tickers_file",
         tickers_file,
         "--timeframe",

@@ -1,0 +1,164 @@
+{
+  "ticker": "JKHY",
+  "timeframe": "5mins",
+  "n_splits": 5,
+  "test_size": 500,
+  "scheme": "expanding",
+  "embargo": 16,
+  "purge": 16,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 1559,
+      "n_test": 500,
+      "roc_auc": 0.6371220574950848,
+      "pr_auc": 0.12345113385612244,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_train": 2059,
+      "n_test": 500,
+      "roc_auc": 0.7093349358974359,
+      "pr_auc": 0.17122878320248183,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 18,
+          "ev": -1.1666666666666667
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 1,
+          "ev": 3.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_train": 2559,
+      "n_test": 500,
+      "roc_auc": 0.6287388569618535,
+      "pr_auc": 0.14291420244723194,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 11,
+          "ev": -0.6363636363636365
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 4,
+          "ev": -0.75
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_train": 3059,
+      "n_test": 500,
+      "roc_auc": 0.5354592664719247,
+      "pr_auc": 0.07314860709035469,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 47,
+          "ev": -1.4680851063829787
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 5,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_train": 3559,
+      "n_test": 500,
+      "roc_auc": 0.7216212606837606,
+      "pr_auc": 0.1824124766518543,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    }
+  ],
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "oof_thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 76,
+          "hits": 11,
+          "hit_rate": 0.14473684210526316,
+          "hit_rate_lb": 0.08278431339921273,
+          "ev": -1.276315789473684,
+          "ev_lb": -1.5860784330039364
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 10,
+          "hits": 2,
+          "hit_rate": 0.2,
+          "hit_rate_lb": 0.05668094798069328,
+          "ev": -1.0,
+          "ev_lb": -1.7165952600965337
+        }
+      ],
+      "best_oof_by_ev_lb": {
+        "thr": 0.8,
+        "n_trades": 76,
+        "hits": 11,
+        "hit_rate": 0.14473684210526316,
+        "hit_rate_lb": 0.08278431339921273,
+        "ev": -1.276315789473684,
+        "ev_lb": -1.5860784330039364
+      }
+    }
+  },
+  "metrics_mean": {
+    "roc_auc": 0.6464552755020119,
+    "pr_auc": 0.13863104064960904
+  },
+  "metrics_std": {
+    "roc_auc": 0.0747075489569977,
+    "pr_auc": 0.04334786934800772
+  },
+  "ev_at_recommended": {
+    "per_fold": [
+      -1.1666666666666667,
+      -0.6363636363636365,
+      -1.4680851063829787
+    ],
+    "mean": -1.0903718031377607,
+    "std": 0.42107698889093276,
+    "folds_covered": 3
+  },
+  "recommended_threshold": 0.8,
+  "recommended_by": "median_of_fold_best_ev_with_coverage"
+}

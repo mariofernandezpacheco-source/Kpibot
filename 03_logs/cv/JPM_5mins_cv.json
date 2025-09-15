@@ -1,0 +1,164 @@
+{
+  "ticker": "JPM",
+  "timeframe": "5mins",
+  "n_splits": 5,
+  "test_size": 500,
+  "scheme": "expanding",
+  "embargo": 16,
+  "purge": 16,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 1577,
+      "n_test": 500,
+      "roc_auc": 0.7830249918857515,
+      "pr_auc": 0.20055078289331696,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 2,
+          "ev": 3.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 1,
+          "ev": 3.0
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_train": 2077,
+      "n_test": 500,
+      "roc_auc": 0.7505679974034405,
+      "pr_auc": 0.13502966053892665,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 1,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 1,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_train": 2577,
+      "n_test": 500,
+      "roc_auc": 0.7262411347517731,
+      "pr_auc": 0.15845635355960544,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_train": 3077,
+      "n_test": 500,
+      "roc_auc": 0.7125400641025641,
+      "pr_auc": 0.24162113837231003,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_train": 3577,
+      "n_test": 500,
+      "roc_auc": 0.7115062260536399,
+      "pr_auc": 0.26351497646654726,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 1,
+          "ev": 3.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    }
+  ],
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "oof_thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 4,
+          "hits": 3,
+          "hit_rate": 0.75,
+          "hit_rate_lb": 0.30063605244263664,
+          "ev": 1.75,
+          "ev_lb": -0.4968197377868169
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 2,
+          "hits": 1,
+          "hit_rate": 0.5,
+          "hit_rate_lb": 0.09452865480086611,
+          "ev": 0.5,
+          "ev_lb": -1.5273567259956695
+        }
+      ],
+      "best_oof_by_ev_lb": {
+        "thr": 0.8,
+        "n_trades": 4,
+        "hits": 3,
+        "hit_rate": 0.75,
+        "hit_rate_lb": 0.30063605244263664,
+        "ev": 1.75,
+        "ev_lb": -0.4968197377868169
+      }
+    }
+  },
+  "metrics_mean": {
+    "roc_auc": 0.7367760828394339,
+    "pr_auc": 0.19983458236614124
+  },
+  "metrics_std": {
+    "roc_auc": 0.030274221264607142,
+    "pr_auc": 0.05411482585907548
+  },
+  "ev_at_recommended": {
+    "per_fold": [
+      3.0,
+      -2.0,
+      3.0
+    ],
+    "mean": 1.3333333333333333,
+    "std": 2.8867513459481287,
+    "folds_covered": 3
+  },
+  "recommended_threshold": null,
+  "recommended_by": null
+}

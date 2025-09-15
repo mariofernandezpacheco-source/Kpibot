@@ -1,0 +1,163 @@
+{
+  "ticker": "FDS",
+  "timeframe": "5mins",
+  "n_splits": 5,
+  "test_size": 500,
+  "scheme": "expanding",
+  "embargo": 16,
+  "purge": 16,
+  "threshold_grid": [
+    0.8,
+    0.9
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 1474,
+      "n_test": 500,
+      "roc_auc": 0.579911111111111,
+      "pr_auc": 0.1128166086882556,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_train": 1974,
+      "n_test": 500,
+      "roc_auc": 0.6930978260869565,
+      "pr_auc": 0.15836382342469021,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_train": 2474,
+      "n_test": 500,
+      "roc_auc": 0.6436482279693486,
+      "pr_auc": 0.1269029268150636,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 111,
+          "ev": -1.4144144144144144
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 25,
+          "ev": -1.2
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_train": 2974,
+      "n_test": 500,
+      "roc_auc": 0.6762519201228879,
+      "pr_auc": 0.2426112321098724,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 0,
+          "ev": -2.0
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_train": 3474,
+      "n_test": 500,
+      "roc_auc": 0.5934049157803675,
+      "pr_auc": 0.12451686089651255,
+      "thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 12,
+          "ev": -1.1666666666666667
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -2.0
+        }
+      ]
+    }
+  ],
+  "oof": {
+    "n_samples": 2500,
+    "oof_eval": {
+      "oof_thresholds": [
+        {
+          "thr": 0.8,
+          "n_trades": 123,
+          "hits": 15,
+          "hit_rate": 0.12195121951219512,
+          "hit_rate_lb": 0.07531350974500774,
+          "ev": -1.3902439024390243,
+          "ev_lb": -1.6234324512749614
+        },
+        {
+          "thr": 0.9,
+          "n_trades": 25,
+          "hits": 4,
+          "hit_rate": 0.16,
+          "hit_rate_lb": 0.06403347608577989,
+          "ev": -1.2,
+          "ev_lb": -1.6798326195711004
+        }
+      ],
+      "best_oof_by_ev_lb": {
+        "thr": 0.8,
+        "n_trades": 123,
+        "hits": 15,
+        "hit_rate": 0.12195121951219512,
+        "hit_rate_lb": 0.07531350974500774,
+        "ev": -1.3902439024390243,
+        "ev_lb": -1.6234324512749614
+      }
+    }
+  },
+  "metrics_mean": {
+    "roc_auc": 0.6372628002141343,
+    "pr_auc": 0.1530422903868789
+  },
+  "metrics_std": {
+    "roc_auc": 0.049727270041372756,
+    "pr_auc": 0.05283461450346232
+  },
+  "ev_at_recommended": {
+    "per_fold": [
+      -1.4144144144144144,
+      -1.1666666666666667
+    ],
+    "mean": -1.2905405405405406,
+    "std": 0.17518411245612658,
+    "folds_covered": 2
+  },
+  "recommended_threshold": null,
+  "recommended_by": null
+}

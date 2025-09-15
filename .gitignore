@@ -4,17 +4,17 @@
 .idea/
 
 # Datos / modelos / logs (ignora contenido pero permite .gitkeep)
-[DAT]_data/*
-![DAT]_data/.gitkeep
+DAT_data/*
+!DAT_data/.gitkeep
 
-[TRN]_models/*
-![TRN]_models/.gitkeep
+TRN_models/*
+!TRN_models/.gitkeep
 
-[LOG]_logs/*
-![LOG]_logs/.gitkeep
+LOG_logs/*
+!LOG_logs/.gitkeep
 
-[LOG]_mlruns/*
-![LOG]_mlruns/.gitkeep
+LOG_mlruns/*
+!LOG_mlruns/.gitkeep
 
 # Ficheros pesados/temporales
 *.csv

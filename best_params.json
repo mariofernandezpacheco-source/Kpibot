@@ -1,0 +1,16 @@
+{
+  "ticker": "EPAM",
+  "timeframe": "5mins",
+  "model": "xgb",
+  "features": "sma_20,ema_12,rsi_14,atr_14,gk_14,vwap_20,volz_20,bb_20_2,ema_26,macd,sma_5",
+  "feature_set": "",
+  "threshold": 0.8,
+  "tp_pct": 0.003,
+  "sl_pct": 0.003,
+  "time_limit": 8,
+  "cooldown_bars": 0,
+  "allow_short": true,
+  "slippage_bps": 0.0,
+  "capital_per_trade": 1000.0,
+  "commission_per_trade": 0.35
+}

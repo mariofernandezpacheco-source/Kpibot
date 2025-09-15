@@ -1,4 +1,4 @@
-# F_download_all_tickers_FOR.py — parametrizado + descarga SPY/VIX
+# data_update.py — parametrizado + descarga SPY/VIX
 
 from __future__ import annotations
 

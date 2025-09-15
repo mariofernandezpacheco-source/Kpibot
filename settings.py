@@ -3,6 +3,7 @@ from pathlib import Path
 
 import yaml
 from pydantic import Field
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent  # carpeta donde está settings.py
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
 
     # IB
     ib_host: str = "127.0.0.1"
-    ib_port: int = 4004
+    ib_port: int = 4001
     ib_live_batch_size: int = 10
     ib_max_rps: float = 2.0
     ib_request_pause_ms: int = 0
@@ -71,7 +72,7 @@ class Settings(BaseSettings):
     use_cv_threshold_first: bool = True
     cv_dir: Path = BASE_DIR / "03_logs" / "cv"
     cv_update_on_start: bool = True
-    cv_test_size: int = 500
+    cv_test_size: int = 75
     cv_scheme: str = "expanding"
     cv_embargo: int = -1
     cv_purge: int = -1
@@ -84,7 +85,7 @@ class Settings(BaseSettings):
 
     # MLflow
     mlflow_enabled: bool = True
-    mlflow_tracking_uri: str | None = None  # None → local ./mlruns
+    mlflow_tracking_uri: Optional[str] = "file:./mlruns"   # <- valor por defecto correcto
     mlflow_experiment: str = "PHIBOT"
     mlflow_nested: bool = False
     mlflow_tags: dict = Field(default_factory=lambda: {"project": "phibot", "owner": "research"})
@@ -174,7 +175,7 @@ class Settings(BaseSettings):
                 threshold_max=float(s.get("threshold_max", 0.95)),
                 close_eod=bool(s.get("close_eod", True)),
                 ib_host=ib.get("host", "127.0.0.1"),
-                ib_port=int(ib.get("port", 4004)),
+                ib_port=int(ib.get("port", 4001)),
                 ib_client_id=int(ib.get("client_id", 11)),
                 ib_max_retries=int(ib.get("max_retries", 5)),
                 ib_backoff_min_s=float(ib.get("backoff_min_s", 0.5)),

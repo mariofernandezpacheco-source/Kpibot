@@ -1,8 +1,8 @@
 paths:
-  data: "[DAT]_data"
-  models: "[TRN]_models"
-  logs: "[LOG]_logs"
-  config: "[CFG]_config"
+  data: "DAT_data"
+  models: "TRN_models"
+  logs: "LOG_logs"
+  config: "CFG_config"
 
 market:
   tz_ui: "Europe/Madrid"
@@ -48,17 +48,15 @@ trading:
 mlflow:
   enabled: true
   # Si dejaste mlruns como carpeta separada:
-  tracking_uri: "file:./[LOG]_mlruns"
-  # O si lo metiste dentro de [LOG]_logs:
-  # tracking_uri: "file:./[LOG]_logs/mlruns"
-  experiment: "PHIBOT"
+  mlflow_tracking_uri: "file:./mlruns"
+  mlflow_experiment: "PHIBOT"
   tags:
     project: "phibot"
     owner: "research"
 
 ib:
   host: "127.0.0.1"
-  port: 4004
+  port: 4001
   client_id: 11
   max_retries: 5
   backoff_min_s: 0.5
@@ -80,10 +78,11 @@ ib:
 
 parquet:
   enabled: true
-  base_path: "dataset"
+  base_path: "DAT_data/parquet"
   compression: "zstd"
   engine: "pyarrow"
   files_per_partition: 1
+
 
 storage:
   write_csv: true
