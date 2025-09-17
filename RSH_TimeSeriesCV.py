@@ -83,7 +83,7 @@ from utils.tscv import PurgedWalkForwardSplit
 # Parámetros base (se pueden override por CLI)
 # =========================
 LABEL_WINDOW = int(getattr(S, "label_window", 5))
-DAYS_HISTORY = int(getattr(S, "days_of_data", 90))
+DAYS_HISTORY = None
 TP_MULT = float(getattr(S, "tp_multiplier", 3.0))
 SL_MULT = float(getattr(S, "sl_multiplier", 2.0))
 TIME_LIMIT_CANDLES = int(getattr(S, "time_limit_candles", 16))
@@ -256,10 +256,15 @@ def _metrics_at_threshold(
 
 def _prepare_dataset(ticker: str, timeframe: str) -> pd.DataFrame:
     df = load_data(ticker=ticker, timeframe=timeframe, use_local=True, base_path=DATA_DIR)
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
-    df = _recent_slice(df, DAYS_HISTORY)
-    df = _slice_by_dates(df, DATE_FROM, DATE_TO)
+    if DATE_FROM or DATE_TO:
+        print(f"DATASET - Usando fechas específicas: {DATE_FROM} to {DATE_TO}")
+        df = _slice_by_dates(df, DATE_FROM, DATE_TO)
+    elif DAYS_HISTORY and DAYS_HISTORY > 0:
+        print(f"DATASET - Usando últimos {DAYS_HISTORY} días")
+        df = _recent_slice(df, DAYS_HISTORY)
+    else:
+        print("DATASET - Usando todos los datos disponibles")
+
     df = validate_df(df, OHLCVSchema, name="OHLCV(cv/input)")
     df = ensure_atr14(df)
 

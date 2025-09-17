@@ -1,0 +1,20 @@
+{
+  "bt_type": "<class 'dict'>",
+  "bt_keys": [
+    "metrics",
+    "equity",
+    "trades"
+  ],
+  "bt_empty": false,
+  "bt_error": null,
+  "metrics_found": [
+    "net_return",
+    "sharpe",
+    "max_drawdown",
+    "win_rate",
+    "profit_factor",
+    "n_trades"
+  ],
+  "equity_len": 390,
+  "trades_len": 0
+}

@@ -1,0 +1,16 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/172876827292241508/d0414ecd93dd45ae9083a9fff225c90e/artifacts
+deleted_time: 1758040328812
+end_time: 1758036696628
+entry_point_name: ''
+experiment_id: '172876827292241508'
+lifecycle_stage: deleted
+run_id: d0414ecd93dd45ae9083a9fff225c90e
+run_name: AIG_5mins_xgb_thr0.650_tp3x_sl3x_tl16
+run_uuid: d0414ecd93dd45ae9083a9fff225c90e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758036696502
+status: 3
+tags: []
+user_id: Mario_user

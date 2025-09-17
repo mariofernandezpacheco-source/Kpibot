@@ -46,20 +46,121 @@ def load_ohlc_and_signals(ticker: str, timeframe: str, params: dict[str, Any]) -
                 y al menos una de: 'signal' (-1/0/1) | 'pred' (-1/0/1) |
                                    'proba_up' (0..1) | 'proba' (0..1)
 
-    TODO: sustituye este stub por TU loader real.
-    """
-    # ←————— EJEMPLO (STUB): intenta leer un parquet/csv si te viene la ruta en params —————→
-    path = params.get("data_path")
-    if path:
-        p = str(path)
-        if p.endswith(".parquet"):
-            df = pd.read_parquet(p)
-        else:
-            df = pd.read_csv(p, parse_dates=True, index_col=0)
-        return df
 
-    # Si no hay loader definido, devuelve DF vacío (no rompemos el flujo)
-    return pd.DataFrame()
+    """
+
+    print(f"DEBUG LOAD - ticker: {ticker}, timeframe: {timeframe}")
+    print(f"DEBUG LOAD - params keys: {list(params.keys())}")
+
+    # Intenta cargar desde tu sistema de datos
+
+    # OPCIÓN 2: Cargar desde parquet directo
+    try:
+        from pathlib import Path
+        import settings
+
+        parquet_base = Path(getattr(settings.S, "parquet_base_path",
+                                    Path(settings.S.data_path) / "parquet"))
+
+        # Esquema: parquet/ohlcv/ticker=AAPL_5MINS/date=2024-XX-XX/data.parquet
+        tf_up = timeframe.replace(" ", "").upper()
+        ticker_dir = parquet_base / "ohlcv" / f"ticker={ticker}_{tf_up}"
+
+        print(f"DEBUG LOAD - Buscando en: {ticker_dir}")
+
+        if ticker_dir.exists():
+            # Busca archivos parquet más recientes
+            parquet_files = list(ticker_dir.rglob("*.parquet"))
+            if parquet_files:
+                print(f"DEBUG LOAD - Encontrados {len(parquet_files)} archivos parquet")
+
+                # Carga los últimos N días de archivos
+                parquet_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+
+                dfs = []
+                for pf in parquet_files[:5]:  # Últimos 5 archivos
+                    try:
+                        df_part = pd.read_parquet(pf)
+                        dfs.append(df_part)
+                    except Exception as e:
+                        print(f"DEBUG LOAD - Error leyendo {pf}: {e}")
+
+                if dfs:
+                    df = pd.concat(dfs, ignore_index=True)
+                    df = df.sort_values('date').drop_duplicates()
+
+                    # Aplicar filtro de días si viene en params
+                    days = params.get('days')
+                    if days and 'date' in df.columns:
+                        cutoff = pd.to_datetime(df['date']).max() - pd.Timedelta(days=days)
+                        df = df[df['date'] >= cutoff]
+
+                    print(f"DEBUG LOAD - Parquet cargado: {len(df)} filas")
+
+                    # Generar señales dummy si no existen
+                    signal_cols = ['signal', 'pred', 'proba_up', 'proba']
+                    if not any(col in df.columns for col in signal_cols):
+                        np.random.seed(42)
+                        df['proba_up'] = np.random.uniform(0.4, 0.7, len(df))
+                        print("DEBUG LOAD - Señales dummy añadidas")
+                        # En backtest_runner.py, en la función load_ohlc_and_signals,
+                        # reemplaza la sección de manejo de fechas con:
+
+                        # CRÍTICO: Manejar timestamps correctamente
+                        if 'date' in df.columns:
+                            print(f"DEBUG LOAD - Tipo original de 'date': {df['date'].dtype}")
+                            print(f"DEBUG LOAD - Muestra de valores: {df['date'].head()}")
+
+                            # Si ya es timestamp, convertir a datetime explícitamente
+                            if df['date'].dtype == 'int64':
+                                # Timestamp Unix (segundos o nanosegundos)
+                                try:
+                                    # Probar primero nanosegundos (más común en pandas)
+                                    df['date'] = pd.to_datetime(df['date'], unit='ns', utc=True)
+                                except:
+                                    try:
+                                        # Si falla, probar segundos
+                                        df['date'] = pd.to_datetime(df['date'], unit='s', utc=True)
+                                    except:
+                                        # Fallback: conversión estándar
+                                        df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
+                            else:
+                                # Ya es datetime-like, solo asegurar que es UTC
+                                df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
+
+                            print(f"DEBUG LOAD - Tipo después de conversión: {df['date'].dtype}")
+
+                            # Eliminar filas con fechas inválidas
+                            original_len = len(df)
+                            df = df.dropna(subset=['date'])
+                            if len(df) < original_len:
+                                print(f"DEBUG LOAD - Eliminadas {original_len - len(df)} filas con fechas inválidas")
+
+                            # ESTABLECER COMO ÍNDICE
+                            df = df.set_index('date')
+                            df = df.sort_index()
+
+                            print(f"DEBUG LOAD - Índice final: {type(df.index)}")
+                            print(f"DEBUG LOAD - Tipo de índice: {df.index.dtype}")
+                            if len(df) > 0:
+                                print(f"DEBUG LOAD - Rango de fechas: {df.index[0]} a {df.index[-1]}")
+                        else:
+                            print("DEBUG LOAD - ERROR: No hay columna 'date' en los datos")
+                            return pd.DataFrame()  # Sin fechas no podemos continua
+
+                    return df
+
+
+
+
+        else:
+            print(f"DEBUG LOAD - No existe directorio: {ticker_dir}")
+
+    except Exception as e:
+        print(f"DEBUG LOAD - Error con parquet: {e}")
+
+    print("DEBUG LOAD - RETORNANDO DATAFRAME VACÍO")
+    return pd.DataFrame()  # DataFrame vacío si todo falla
 
 
 def _generate_signals(df: pd.DataFrame, p: BTParams) -> pd.Series:
@@ -342,39 +443,78 @@ def _trading_metrics(equity: pd.Series, trades: pd.DataFrame) -> dict[str, float
 # -----------------------------------------------------------------------------
 # API pública
 # -----------------------------------------------------------------------------
+# En backtest_runner.py, reemplaza la función run_backtest_for_ticker con:
+
 def run_backtest_for_ticker(
-    ticker: str,
-    timeframe: str,
-    params: dict[str, Any],
-    df_override: pd.DataFrame | None = None,
+        ticker: str,
+        timeframe: str,
+        params: dict[str, Any],
+        df_override: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """
-    Ejecuta backtest simple para (ticker,timeframe) con 'params':
-      params esperados: threshold, tp_pct, sl_pct, cooldown_bars, allow_short, slippage_bps, capital_per_trade, commission_per_trade
-      df_override: si lo pasas, se usa directamente.
-
-    Devuelve:
-      {"metrics": dict, "equity": pd.Series, "trades": pd.DataFrame}
+    Ejecuta backtest simple para (ticker,timeframe) con 'params'
     """
-    bt_params = BTParams(
-        threshold=float(params.get("threshold", 0.80)),
-        tp_pct=float(params.get("tp_pct", 0.005)),
-        sl_pct=float(params.get("sl_pct", 0.005)),
-        cooldown_bars=int(params.get("cooldown_bars", 0)),
-        allow_short=bool(params.get("allow_short", _ALLOW_SHORT)),
-        slippage_bps=float(params.get("slippage_bps", 0.0)),
-        capital_per_trade=float(params.get("capital_per_trade", _CAPITAL)),
-        commission_per_trade=float(params.get("commission_per_trade", _COMMISSION)),
-    )
+    print(f"BACKTEST DEBUG - Iniciando para {ticker} {timeframe}")
 
-    df = (
-        df_override if df_override is not None else load_ohlc_and_signals(ticker, timeframe, params)
-    )
-    if df is None or df.empty or not {"close"}.issubset(df.columns):
-        # Sin datos: devolvemos artefactos vacíos para no romper el pipeline
+    try:
+        bt_params = BTParams(
+            threshold=float(params.get("threshold", 0.80)),
+            tp_pct=float(params.get("tp_pct", 0.005)),
+            sl_pct=float(params.get("sl_pct", 0.005)),
+            cooldown_bars=int(params.get("cooldown_bars", 0)),
+            allow_short=bool(params.get("allow_short", _ALLOW_SHORT)),
+            slippage_bps=float(params.get("slippage_bps", 0.0)),
+            capital_per_trade=float(params.get("capital_per_trade", _CAPITAL)),
+            commission_per_trade=float(params.get("commission_per_trade", _COMMISSION)),
+        )
+        print(
+            f"BACKTEST DEBUG - Parámetros BT: threshold={bt_params.threshold}, tp={bt_params.tp_pct}, sl={bt_params.sl_pct}")
+
+        df = (
+            df_override if df_override is not None
+            else load_ohlc_and_signals(ticker, timeframe, params)
+        )
+
+        print(f"BACKTEST DEBUG - DataFrame cargado: {len(df)} filas")
+        if df.empty:
+            print("BACKTEST DEBUG - DataFrame vacío, retornando resultado vacío")
+            return {"metrics": {}, "equity": pd.Series(dtype="float64"), "trades": pd.DataFrame()}
+
+        print(f"BACKTEST DEBUG - Columnas disponibles: {list(df.columns)}")
+
+        # Verificar columnas requeridas
+        required = {"close"}
+        missing = required - set(df.columns)
+        if missing:
+            print(f"BACKTEST DEBUG - Faltan columnas requeridas: {missing}")
+            return {"metrics": {}, "equity": pd.Series(dtype="float64"), "trades": pd.DataFrame()}
+
+        sig = _generate_signals(df, bt_params)
+        print(f"BACKTEST DEBUG - Señales generadas: {len(sig)} valores")
+        print(f"BACKTEST DEBUG - Distribución de señales: {sig.value_counts().to_dict()}")
+
+        if sig.abs().sum() == 0:
+            print("BACKTEST DEBUG - No hay señales activas (todas cero)")
+
+        equity, trades = _simulate(df, sig, bt_params)
+        print(f"BACKTEST DEBUG - Simulación completada")
+        print(f"BACKTEST DEBUG - Equity: {len(equity)} puntos")
+        print(f"BACKTEST DEBUG - Trades: {len(trades)} operaciones")
+
+        if not trades.empty:
+            print(f"BACKTEST DEBUG - Ejemplo de trades:\n{trades.head()}")
+
+        metrics = _trading_metrics(equity, trades)
+        print(f"BACKTEST DEBUG - Métricas calculadas: {list(metrics.keys())}")
+        print(f"BACKTEST DEBUG - Métricas: {metrics}")
+
+        result = {"metrics": metrics, "equity": equity, "trades": trades}
+        print(f"BACKTEST DEBUG - Resultado final: claves={list(result.keys())}")
+        return result
+
+    except Exception as e:
+        print(f"BACKTEST DEBUG - ERROR en backtest: {e}")
+        import traceback
+        traceback.print_exc()
+        # Retornar estructura vacía pero válida en caso de error
         return {"metrics": {}, "equity": pd.Series(dtype="float64"), "trades": pd.DataFrame()}
-
-    sig = _generate_signals(df, bt_params)
-    equity, trades = _simulate(df, sig, bt_params)
-    metrics = _trading_metrics(equity, trades)
-    return {"metrics": metrics, "equity": equity, "trades": trades}

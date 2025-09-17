@@ -19,10 +19,10 @@
   "folds": [
     {
       "fold": 0,
-      "n_train": 2064,
+      "n_train": 738,
       "n_test": 20,
-      "roc_auc": 0.29166666666666663,
-      "pr_auc": 0.24166666666666667,
+      "roc_auc": 0.5625,
+      "pr_auc": 0.33011485042735045,
       "thresholds": [
         {
           "thr": 0.55,
@@ -68,7 +68,7 @@
     },
     {
       "fold": 1,
-      "n_train": 2084,
+      "n_train": 758,
       "n_test": 20,
       "roc_auc": NaN,
       "pr_auc": 0.5,
@@ -117,7 +117,7 @@
     },
     {
       "fold": 2,
-      "n_train": 2104,
+      "n_train": 778,
       "n_test": 20,
       "roc_auc": NaN,
       "pr_auc": 0.5,
@@ -166,7 +166,7 @@
     },
     {
       "fold": 3,
-      "n_train": 2124,
+      "n_train": 798,
       "n_test": 20,
       "roc_auc": NaN,
       "pr_auc": 0.5,
@@ -215,10 +215,10 @@
     },
     {
       "fold": 4,
-      "n_train": 2144,
+      "n_train": 818,
       "n_test": 20,
-      "roc_auc": 0.10526315789473684,
-      "pr_auc": 0.025,
+      "roc_auc": 0.2368421052631579,
+      "pr_auc": 0.03125,
       "thresholds": [
         {
           "thr": 0.55,
@@ -334,12 +334,12 @@
     }
   },
   "metrics_mean": {
-    "roc_auc": 0.19846491228070173,
-    "pr_auc": 0.35333333333333333
+    "roc_auc": 0.399671052631579,
+    "pr_auc": 0.37227297008547006
   },
   "metrics_std": {
-    "roc_auc": 0.13180718508959766,
-    "pr_auc": 0.21494508342571805
+    "roc_auc": 0.23027490571535594,
+    "pr_auc": 0.2043382952920141
   },
   "ev_at_recommended": {
     "per_fold": [],

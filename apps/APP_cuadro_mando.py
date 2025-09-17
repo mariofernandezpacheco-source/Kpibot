@@ -110,7 +110,7 @@ def _run_cv_subprocess(
         args += ["--model", model]
     if feature_set:
         args += ["--feature_set", feature_set]
-    if days is not None:
+    if days is not None and not (date_from or date_to):
         args += ["--days", str(int(days))]
     if tp is not None:
         args += ["--tp", str(float(tp))]
@@ -165,6 +165,7 @@ def _run_scenarios_subprocess(
     purge: int | None,
     tp: float | None,
     sl: float | None,
+    couple_labeling_exec: bool,
     time_limit: int | None,
     primary_metric: str,
     min_trades: int,
@@ -214,6 +215,10 @@ def _run_scenarios_subprocess(
         args += ["--sl", str(float(sl))]
     if time_limit is not None:
         args += ["--time_limit", str(int(time_limit))]
+    if couple_labeling_exec:
+        args += ["--couple_labeling_exec"]
+    else:
+        args += ["--no_couple_labeling_exec"]
 
     proc = subprocess.run(args, check=False, capture_output=True, text=True)
     out = (proc.stdout or "") + ("\n" + (proc.stderr or "") if proc.stderr else "")
@@ -510,6 +515,18 @@ elif tab == "Research":
     # ---------- Lanzador ----------
     st.subheader("🚀 Lanzador de escenarios (single-run)")
 
+    # ✅ Nuevo: acoplar labeling y backtest (mismo grid TP/SL/TL/threshold)
+    couple_labeling_exec = st.checkbox(
+        "Acoplar labeling y backtest (usar el mismo grid para TP/SL/TL/threshold)",
+        value=True,
+        help=(
+            "Si está activado, la CV (labeling) se ejecuta por cada combinación del grid "
+            "usando exactamente los mismos TP/SL/TimeLimit/Threshold que el backtest. "
+            "Así cada run corresponde a una única combinación coherente."
+        ),
+        key="rsh_coupled",
+    )
+
     # timeframe
     timeframes = ["1min", "5mins", "15mins", "1hour", "1day"]
     default_tf = getattr(S, "timeframe_default", "5mins")
@@ -548,7 +565,7 @@ elif tab == "Research":
         date_to = st.date_input("Fecha TO (UTC)", value=None, key="rsh_to")
         date_to_str = date_to.strftime("%Y-%m-%d") if date_to else None
     with c3:
-        days_hist = st.number_input("Últimos N días (override)", min_value=0, value=int(getattr(S, "days_of_data", 90)), step=5, key="rsh_days")
+        days_hist = st.number_input("Últimos N días (solo si no hay fechas)", min_value=0, value=0, step=5, key="rsh_days", help="Se usa solo si date_from/date_to están vacíos")
 
     # CV config básica
     c_ns, c_ts = st.columns([1, 1])
@@ -567,24 +584,32 @@ elif tab == "Research":
                                    index=["core","core+vol","all"].index(getattr(S, "feature_set", "core")),
                                    key="rsh_featset")
     with c6:
-        st.caption("Label/triple-barrier (opcional para CV)")
-        tp = st.number_input("TP×", min_value=0.1, max_value=10.0, value=float(getattr(S, "tp_multiplier", 3.0)), step=0.1, key="rsh_tp")
-        sl = st.number_input("SL×", min_value=0.1, max_value=10.0, value=float(getattr(S, "sl_multiplier", 2.0)), step=0.1, key="rsh_sl")
-        time_limit = st.number_input("Time limit (bars)", min_value=1, max_value=500, value=int(getattr(S, "time_limit_candles", 16)), step=1, key="rsh_tl")
+        st.caption("Label/triple-barrier (si *no* acoplas)")
+        if not couple_labeling_exec:
+            tp_lbl = st.number_input("TP× (labeling)", min_value=0.1, max_value=10.0, value=3.0, step=0.1, key="rsh_tp_lbl")
+            sl_lbl = st.number_input("SL× (labeling)", min_value=0.1, max_value=10.0, value=2.0, step=0.1, key="rsh_sl_lbl")
+            tl_lbl = st.number_input("Time limit (labeling, barras)", min_value=1, max_value=500, value=16, step=1, key="rsh_tl_lbl")
+        else:
+            st.caption("🔗 Acoplado: la CV usará el grid de TP/SL/TL del backtest.")
+            tp_lbl = sl_lbl = tl_lbl = None
 
     # Features seleccionables
     st.markdown("**Features seleccionables (engine.features):**")
     feat_keys = sorted(list(FEATURE_REG.keys()))
-    selected_feats = st.multiselect("Selecciona features (opcional; vacío = usar 'feature_set' legacy)", options=feat_keys,
-                                    default=["sma_20","ema_12","rsi_14","atr_14","gk_14","vwap_20","volz_20"], key="rsh_feat_sel")
+    selected_feats = st.multiselect(
+        "Selecciona features (opcional; vacío = usar 'feature_set' legacy)",
+        options=feat_keys,
+        default=["sma_20","ema_12","rsi_14","atr_14","gk_14","vwap_20","volz_20"],
+        key="rsh_feat_sel"
+    )
     features_csv = ",".join(selected_feats) if selected_feats else None
 
     # thresholds & grids
     default_thr = getattr(S, "cv_threshold_grid", [0.55, 0.6, 0.65, 0.7, 0.75, 0.8])
-    thr_text = st.text_input("Thresholds (CSV para CV y/o BT):", value=",".join(str(x) for x in default_thr), key="rsh_thr")
-    tp_grid_txt = st.text_input("TP grid (CSV, %)", value="0.003,0.005,0.008", key="rsh_tpgrid")
-    sl_grid_txt = st.text_input("SL grid (CSV, %)", value="0.003,0.005,0.008", key="rsh_slgrid")
-    tl_grid_txt = st.text_input("Time limit bars (CSV)", value="8,12,16", key="rsh_tlgrid")
+    thr_text = st.text_input("Thresholds (CSV, 0–1)", value=",".join(str(x) for x in default_thr), key="rsh_thr")
+    tp_grid_txt = st.text_input("TP grid (CSV, multiplicadores absolutos)", value="1,2,3", key="rsh_tpgrid")
+    sl_grid_txt = st.text_input("SL grid (CSV, multiplicadores absolutos)", value="1,2,3", key="rsh_slgrid")
+    tl_grid_txt = st.text_input("Time limit grid (CSV, barras)", value="8,12,16", key="rsh_tlgrid")
     iter_thr_in_bt = st.checkbox("Iterar también los thresholds en el backtest", value=True, key="iter_thr_bt")
 
     # selección del “mejor”
@@ -613,6 +638,7 @@ elif tab == "Research":
             progress.progress(done / total, text=f"Procesando {tk}…")
 
             if run_cv_btn and not run_scen_btn:
+                # Solo CV “suelta” (útil para comprobar datos/fechas/features)
                 rc, out = _run_cv_subprocess(
                     tk, timeframe,
                     date_from=date_from_str, date_to=date_to_str,
@@ -620,14 +646,16 @@ elif tab == "Research":
                     model=models_sel[0] if models_sel else "xgb",
                     feature_set=feature_set if not selected_feats else None,
                     days=int(days_hist) if days_hist else None,
-                    tp=float(tp) if tp else None,
-                    sl=float(sl) if sl else None,
-                    time_limit=int(time_limit) if time_limit else None,
+                    # estos tres solo se aplican si NO acoplas; si acoplas se ignoran por el script
+                    tp=float(tp_lbl) if (tp_lbl is not None) else None,
+                    sl=float(sl_lbl) if (sl_lbl is not None) else None,
+                    time_limit=int(tl_lbl) if (tl_lbl is not None) else None,
                     features_csv=features_csv,
                     n_splits=int(n_splits) if n_splits else None,
                     test_size=int(test_size) if test_size else None,
                 )
             else:
+                # Research: un run por combinación coherente
                 rc, out = _run_scenarios_subprocess(
                     ticker=tk, timeframe=timeframe,
                     models_csv=",".join(models_sel) if models_sel else "xgb",
@@ -640,8 +668,13 @@ elif tab == "Research":
                     n_splits=int(n_splits) if n_splits else None,
                     test_size=int(test_size) if test_size else None,
                     scheme="expanding", embargo=16, purge=16,
-                    tp=float(tp) if tp else None, sl=float(sl) if sl else None, time_limit=int(time_limit) if time_limit else None,
+                    # labeling manual SOLO si está des-acoplado:
+                    tp=float(tp_lbl) if (not couple_labeling_exec and tp_lbl is not None) else None,
+                    sl=float(sl_lbl) if (not couple_labeling_exec and sl_lbl is not None) else None,
+                    time_limit=int(tl_lbl) if (not couple_labeling_exec and tl_lbl is not None) else None,
                     primary_metric=primary_metric, min_trades=int(min_trades),
+                    # ✅ Flag de acoplamiento hacia el script
+                    couple_labeling_exec=bool(couple_labeling_exec),
                 )
 
             returncode_msg = "OK" if rc == 0 else "ERROR"
@@ -652,102 +685,172 @@ elif tab == "Research":
             progress.progress(done / total, text=f"Procesados {done}/{total}")
 
         st.success("Lanzamiento finalizado. Revisa la sección de visualización y/o la UI de MLflow.")
+    # En APP_cuadro_mando.py, añadir una nueva sección después del lanzador de scenarios:
 
+    # ---------- Panel de Calidad de Modelos ----------
     st.divider()
+    st.subheader("📊 Panel de Calidad de Modelos")
 
-    # ---------- Visualizador ----------
-    st.subheader("📊 Visualizador de resultados (MLflow)")
+    if st.button("🔍 Analizar Calidad de Runs Recientes"):
+        try:
+            exp_name = _mlflow_setup_for_app()
+            client = MlflowClient()
+            experiment = client.get_experiment_by_name(exp_name)
 
-    vis_tf = st.selectbox("Timeframe (filtrar)", options=["(todos)"] + ["1min","5mins","15mins","1hour","1day"],
-                          index=(["1min","5mins","15mins","1hour","1day"].index(timeframe)+1 if timeframe in ["1min","5mins","15mins","1hour","1day"] else 0),
-                          key="vis_tf")
-    vis_tickers = st.text_input("Filtrar tickers (CSV, opcional)", value="", key="vis_tk")
-
-    exp_name = _mlflow_setup_for_app()
-    client = MlflowClient()
-    exp = client.get_experiment_by_name(exp_name)
-
-    if not exp:
-        st.info(f"No encuentro experimento MLflow '{exp_name}'. ¿Has registrado ya algún run?")
-    else:
-        base_filter = "attributes.status = 'FINISHED'"
-        if vis_tf and vis_tf != "(todos)":
-            base_filter += f" and tags.timeframe = '{vis_tf}'"
-
-        runs = client.search_runs(
-            experiment_ids=[exp.experiment_id],
-            filter_string=base_filter,
-            max_results=5000,
-            order_by=["attributes.start_time DESC"],
-        )
-
-        # Nos quedamos con los "single-run" de escenarios
-        def include_run(r):
-            tg = r.data.tags
-            return (tg.get("component") == "optimizer") and (tg.get("phase") == "scenarios_per_combo")
-
-        runs = [r for r in runs if include_run(r)]
-
-        if not runs:
-            st.info("No hay runs de escenarios (single-run) que cumplan los filtros.")
-        else:
-            rows = []
-            filter_tks = [t.strip().upper() for t in (vis_tickers.split(",") if vis_tickers else []) if t.strip()]
-            for r in runs:
-                tags = r.data.tags
-                params = r.data.params
-                metrics = r.data.metrics
-
-                tk = tags.get("ticker", "")
-                tf = tags.get("timeframe", "")
-                if filter_tks and tk not in filter_tks:
-                    continue
-
-                rows.append({
-                    "run_id": r.info.run_id,
-                    "start": datetime.fromtimestamp(r.info.start_time/1000.0),
-                    "ticker": tk,
-                    "timeframe": tf,
-                    "models": params.get("models",""),
-                    "feature_set": params.get("feature_set",""),
-                    "features": params.get("features",""),
-                    # CV best-model
-                    "oof_roc_auc_best_model": metrics.get("oof_roc_auc_best_model", np.nan),
-                    "oof_pr_auc_best_model": metrics.get("oof_pr_auc_best_model", np.nan),
-                    "recommended_threshold_best_model": metrics.get("recommended_threshold_best_model", np.nan),
-                    # BEST backtest
-                    "best_net_return": metrics.get("best_net_return", np.nan),
-                    "best_sharpe": metrics.get("best_sharpe", np.nan),
-                    "best_max_drawdown": metrics.get("best_max_drawdown", np.nan),
-                    "best_win_rate": metrics.get("best_win_rate", np.nan),
-                    "best_profit_factor": metrics.get("best_profit_factor", np.nan),
-                    "best_n_trades": metrics.get("best_n_trades", np.nan),
-                })
-
-            df_runs = pd.DataFrame(rows)
-            if df_runs.empty:
-                st.info("No hay runs tras aplicar filtros.")
-            else:
-                metric_for_top = st.selectbox(
-                    "Métrica para 'Top por ticker'",
-                    options=["best_net_return", "best_sharpe", "oof_pr_auc_best_model", "oof_roc_auc_best_model"],
-                    index=0,
-                    key="vis_metric"
+            if experiment:
+                # Obtener runs recientes
+                runs = client.search_runs(
+                    experiment_ids=[experiment.experiment_id],
+                    max_results=50,
+                    order_by=["start_time DESC"]
                 )
 
-                st.caption("Runs (orden recientes primero).")
-                st.dataframe(df_runs.sort_values("start", ascending=False),
-                             use_container_width=True, hide_index=True)
+                if runs:
+                    # Extraer métricas de calidad
+                    quality_data = []
+                    for run in runs:
+                        metrics = run.data.metrics
+                        params = run.data.params
 
-                with st.expander("🏆 Top por ticker (según métrica seleccionada)", expanded=True):
-                    df_clean = df_runs.copy()
-                    df_clean[metric_for_top] = pd.to_numeric(df_clean[metric_for_top], errors="coerce")
-                    df_top = df_clean.sort_values(metric_for_top, ascending=False).dropna(subset=[metric_for_top])
-                    df_top = df_top.sort_values(["ticker", metric_for_top], ascending=[True, False]).groupby("ticker", as_index=False).head(1)
+                        quality_data.append({
+                            "run_name": run.info.run_name,
+                            "ticker": params.get("ticker", "N/A"),
+                            "model": params.get("model", "N/A"),
+                            "temporal_coverage": metrics.get("temporal_coverage_pct", 0),
+                            "trading_days_actual": metrics.get("trading_days_actual", 0),
+                            "missing_days": metrics.get("missing_days", 0),
+                            "feature_count": metrics.get("feature_count", 0),
+                            "top5_concentration": metrics.get("top5_feature_concentration", 0),
+                            "zero_features": metrics.get("zero_importance_features", 0),
+                            "net_return": metrics.get("net_return", 0),
+                            "sharpe": metrics.get("sharpe", 0),
+                            "n_trades": metrics.get("n_trades", 0),
+                            "data_quality": run.data.tags.get("data_quality", "UNKNOWN"),
+                            "feature_diversity": run.data.tags.get("feature_diversity", "UNKNOWN")
+                        })
+
+                    df_quality = pd.DataFrame(quality_data)
+
+                    # Filtros
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        min_coverage = st.slider("Cobertura temporal mínima (%)", 0, 100, 80)
+                        df_filtered = df_quality[df_quality["temporal_coverage"] >= min_coverage]
+                    with col2:
+                        max_concentration = st.slider("Concentración máxima top 5 (%)", 0, 100, 80)
+                        df_filtered = df_filtered[df_filtered["top5_concentration"] <= max_concentration]
+                    with col3:
+                        min_trades = st.number_input("Trades mínimos", 0, 1000, 10)
+                        df_filtered = df_filtered[df_filtered["n_trades"] >= min_trades]
+
+                    st.write(f"Mostrando {len(df_filtered)}/{len(df_quality)} runs que pasan los filtros de calidad")
+
+                    # Panel de calidad
+                    col_temp, col_feat = st.columns([1, 1])
+
+                    with col_temp:
+                        st.markdown("**📅 Calidad Temporal**")
+                        quality_counts = df_filtered["data_quality"].value_counts()
+
+                        for quality, count in quality_counts.items():
+                            color = {
+                                "EXCELLENT": "🟢", "GOOD": "🟡",
+                                "ACCEPTABLE": "🟠", "POOR": "🔴",
+                                "CRITICAL": "❌"
+                            }.get(quality, "⚪")
+                            st.write(f"{color} {quality}: {count} runs")
+
+                        # Gráfico de cobertura temporal
+                        if len(df_filtered) > 0:
+                            st.bar_chart(df_filtered.set_index("ticker")["temporal_coverage"])
+
+                    with col_feat:
+                        st.markdown("**🎯 Diversidad de Features**")
+                        diversity_counts = df_filtered["feature_diversity"].value_counts()
+
+                        for diversity, count in diversity_counts.items():
+                            color = {"HIGH": "🟢", "MEDIUM": "🟡", "LOW": "🔴"}.get(diversity, "⚪")
+                            st.write(f"{color} {diversity}: {count} runs")
+
+                        # Gráfico de concentración
+                        if len(df_filtered) > 0:
+                            st.bar_chart(df_filtered.set_index("ticker")["top5_concentration"])
+
+                    # Tabla detallada
+                    st.markdown("**📋 Detalle de Runs**")
+                    display_cols = [
+                        "ticker", "model", "temporal_coverage", "missing_days",
+                        "feature_count", "top5_concentration", "zero_features",
+                        "net_return", "sharpe", "n_trades"
+                    ]
+
                     st.dataframe(
-                        df_top[["ticker","timeframe","models","feature_set","features", metric_for_top,"run_id","start"]],
-                        use_container_width=True, hide_index=True
+                        df_filtered[display_cols].round(2),
+                        use_container_width=True,
+                        hide_index=True
                     )
+
+                    # Alertas automáticas
+                    st.markdown("**⚠️ Alertas de Calidad**")
+                    alerts = []
+
+                    low_coverage = df_filtered[df_filtered["temporal_coverage"] < 80]
+                    if len(low_coverage) > 0:
+                        alerts.append(f"🔴 {len(low_coverage)} runs con cobertura temporal < 80%")
+
+                    high_concentration = df_filtered[df_filtered["top5_concentration"] > 85]
+                    if len(high_concentration) > 0:
+                        alerts.append(f"🟡 {len(high_concentration)} runs con alta concentración de features (>85%)")
+
+                    few_trades = df_filtered[df_filtered["n_trades"] < 20]
+                    if len(few_trades) > 0:
+                        alerts.append(f"🟠 {len(few_trades)} runs con pocos trades (<20)")
+
+                    if alerts:
+                        for alert in alerts:
+                            st.warning(alert)
+                    else:
+                        st.success("✅ Todos los runs pasan los controles de calidad básicos")
+
+                else:
+                    st.info("No se encontraron runs recientes para analizar")
+            else:
+                st.error("No se encontró el experimento MLflow")
+
+        except Exception as e:
+            st.error(f"Error analizando calidad: {e}")
+
+    # ---------- Visualización de Features Top ----------
+    st.divider()
+    st.subheader("🎯 Features Más Importantes")
+
+    ticker_analysis = st.selectbox("Selecciona ticker para análisis de features",
+                                   options=tickers if tickers else ["AAPL"],
+                                   key="feature_analysis_ticker")
+
+    if st.button("📊 Analizar Features"):
+        # Esto requeriría acceso a los modelos entrenados
+        # Por ahora, mostrar placeholder
+        st.info("Funcionalidad en desarrollo - requiere acceso a modelos entrenados")
+
+        # Mock data para demostrar la interfaz
+        mock_features = [
+            {"feature": "rsi_14", "importance": 18.5},
+            {"feature": "atr_14", "importance": 15.2},
+            {"feature": "sma_20", "importance": 12.8},
+            {"feature": "vwap_20", "importance": 11.1},
+            {"feature": "ema_12", "importance": 9.7},
+        ]
+
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            chart_data = pd.DataFrame(mock_features)
+            st.bar_chart(chart_data.set_index("feature")["importance"])
+
+        with col2:
+            st.write("**Top Features:**")
+            for feat in mock_features:
+                st.write(f"• {feat['feature']}: {feat['importance']:.1f}%")
 
 elif tab == "Entrenamiento":
     st.header("🏋️ Entrenamiento")
