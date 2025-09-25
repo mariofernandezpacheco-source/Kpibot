@@ -1,0 +1,127 @@
+{
+  "ticker": "ABNB",
+  "timeframe": "5mins",
+  "n_splits": 5,
+  "test_size": 400,
+  "scheme": "expanding",
+  "embargo": 16,
+  "purge": 16,
+  "threshold_grid": [
+    0.9
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 7484,
+      "n_test": 400,
+      "roc_auc": 0.663387000596303,
+      "pr_auc": 0.07257716378296013,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 1,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_train": 7884,
+      "n_test": 400,
+      "roc_auc": 0.8302792321116929,
+      "pr_auc": 0.25443162064945857,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_train": 8284,
+      "n_test": 400,
+      "roc_auc": 0.9205994897959184,
+      "pr_auc": 0.30047249396468345,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_train": 8684,
+      "n_test": 400,
+      "roc_auc": 0.8486075949367089,
+      "pr_auc": 0.27807818815883334,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_train": 9084,
+      "n_test": 400,
+      "roc_auc": 0.6868489583333333,
+      "pr_auc": 0.23139755351226404,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    }
+  ],
+  "oof": {
+    "n_samples": 2000,
+    "oof_eval": {
+      "oof_thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 1,
+          "hits": 0,
+          "hit_rate": 0.0,
+          "hit_rate_lb": 0.0,
+          "ev": -4.0,
+          "ev_lb": -4.0
+        }
+      ],
+      "best_oof_by_ev_lb": {
+        "thr": 0.9,
+        "n_trades": 1,
+        "hits": 0,
+        "hit_rate": 0.0,
+        "hit_rate_lb": 0.0,
+        "ev": -4.0,
+        "ev_lb": -4.0
+      }
+    }
+  },
+  "metrics_mean": {
+    "roc_auc": 0.7899444551547912,
+    "pr_auc": 0.22739140401363991
+  },
+  "metrics_std": {
+    "roc_auc": 0.11043603017980255,
+    "pr_auc": 0.09031149888460206
+  },
+  "ev_at_recommended": {
+    "per_fold": [
+      -4.0
+    ],
+    "mean": -4.0,
+    "std": NaN,
+    "folds_covered": 1
+  },
+  "recommended_threshold": null,
+  "recommended_by": null
+}

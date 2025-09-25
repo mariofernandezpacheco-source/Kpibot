@@ -1,0 +1,121 @@
+{
+  "ticker": "AIZ",
+  "timeframe": "5mins",
+  "n_splits": 5,
+  "test_size": 150,
+  "scheme": "expanding",
+  "embargo": 16,
+  "purge": 16,
+  "threshold_grid": [
+    0.9
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 8646,
+      "n_test": 150,
+      "roc_auc": NaN,
+      "pr_auc": 0.5,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 1,
+      "n_train": 8796,
+      "n_test": 150,
+      "roc_auc": 0.9082125603864735,
+      "pr_auc": 0.5885054605642673,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "n_train": 8946,
+      "n_test": 150,
+      "roc_auc": 0.5715889949466592,
+      "pr_auc": 0.11386108576743338,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 3,
+      "n_train": 9096,
+      "n_test": 150,
+      "roc_auc": 0.7986577181208054,
+      "pr_auc": 0.016129032258064516,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    },
+    {
+      "fold": 4,
+      "n_train": 9246,
+      "n_test": 150,
+      "roc_auc": 0.6303854875283447,
+      "pr_auc": 0.051103076627169244,
+      "thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "ev": -4.0
+        }
+      ]
+    }
+  ],
+  "oof": {
+    "n_samples": 750,
+    "oof_eval": {
+      "oof_thresholds": [
+        {
+          "thr": 0.9,
+          "n_trades": 0,
+          "hit_rate": NaN,
+          "ev": -4.0,
+          "ev_lb": -4.0
+        }
+      ],
+      "best_oof_by_ev_lb": {
+        "thr": 0.9,
+        "n_trades": 0,
+        "hit_rate": NaN,
+        "ev": -4.0,
+        "ev_lb": -4.0
+      }
+    }
+  },
+  "metrics_mean": {
+    "roc_auc": 0.7272111902455707,
+    "pr_auc": 0.25391973104338683
+  },
+  "metrics_std": {
+    "roc_auc": 0.15433684666409378,
+    "pr_auc": 0.2691647009837627
+  },
+  "ev_at_recommended": {
+    "per_fold": [],
+    "mean": NaN,
+    "std": NaN,
+    "folds_covered": 0
+  },
+  "recommended_threshold": null,
+  "recommended_by": null
+}

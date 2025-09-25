@@ -27,7 +27,7 @@ def build_and_fit_pipeline(train_df: pd.DataFrame, target_col: str = "label"):
     X_raw = train_df.drop(columns=[target_col])
     X_raw = OHLCVSchema.validate(X_raw)
 
-    # 2) Feature Builder (misma config para live)
+    # 2) Feature Builder (misma config_ para live)
     fb = FeatureBuilder(
         price_col_map={
             "open": "open",

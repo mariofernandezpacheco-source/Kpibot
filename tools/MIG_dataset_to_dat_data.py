@@ -8,7 +8,7 @@ import sys
 def main():
     ap = argparse.ArgumentParser("Migra parquet de dataset -> [DAT]_data (manteniendo estructura ohlcv)")
     ap.add_argument("--old-root", required=True, help=r"Ej: C:\...\BOTRADING\dataset\ohlcv")
-    ap.add_argument("--new-root", required=True, help=r"Ej: C:\...\BOTRADING\[DAT]_data\parquet\ohlcv")
+    ap.add_argument("--new-root", required=True, help=r"Ej: C:\...\BOTRADING\DAT_data\parquet\ohlcv")
     ap.add_argument("--mode", choices=["move","copy"], default="move", help="Mover (por defecto) o copiar")
     ap.add_argument("--dry-run", action="store_true", help="No escribe; solo muestra lo que haría")
     args = ap.parse_args()

@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import io
+import os
 import platform
 import subprocess
 import importlib
@@ -16,9 +17,13 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from engine.backtest_runner import run_backtest_for_ticker  # usado en Datos (no en research lanzado)
 from engine.features import FEATURES as FEATURE_REG
+from engine.runs_extractor import extract_mlflow_runs
 
 import pandas as pd
 import streamlit as st
+
+RSH_SCENARIOS_PATH   = r"C:\Users\Mario_user\Documents\BOTRADING\RSH_Scenarios.py"
+RSH_TIMESERIESCV_PATH = r"C:\Users\Mario_user\Documents\BOTRADING\RSH_TimeseriesCV.py"
 
 # --- asegura imports desde la raíz del repo (porque este archivo vive en apps/) ---
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +31,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # -------- settings & backend --------
+
 import settings as settings
 S = settings.S  # snapshot inicial
 
@@ -64,73 +70,55 @@ def _mlflow_setup_for_app():
     except Exception:
         mlflow.set_tracking_uri(abs_uri)
 
-    exp_name = getattr(S, "mlflow_experiment", "PHIBOT")
+    exp_name = getattr(S, "mlflow_experiment", "PHIBOT_TRAINING")
     mlflow.set_experiment(exp_name)
     return exp_name
 
 
 def _cv_json_path(ticker: str, timeframe: str) -> Path:
-    cv_dir = Path(getattr(S, "cv_dir", Path(S.logs_path) / "cv"))
+    cv_dir = Path(getattr(S, "cv_dir", Path(S.logs_path) / "RSH_TimeSeriesCV"))
     cv_dir.mkdir(parents=True, exist_ok=True)
     return cv_dir / f"{ticker.upper()}_{timeframe}_cv.json"
 
 
 def _run_cv_subprocess(
-    ticker: str,
-    timeframe: str,
-    *,
-    date_from: str | None,
-    date_to: str | None,
-    thresholds: list[float] | None,
-    model: str | None,
-    feature_set: str | None,
-    days: int | None,
-    tp: float | None,
-    sl: float | None,
-    time_limit: int | None,
-    features_csv: str | None = None,
-    n_splits: int | None = None,
-    test_size: int | None = None,
-    capture_output: bool = True,
-) -> tuple[int, str]:
-    """Lanza RSH_TimeSeriesCV.py con overrides via CLI. Devuelve (rc, salida)."""
-    script = ROOT / "RSH_TimeSeriesCV.py"
-    if not script.exists():
-        return (1, f"No encuentro RSH_TimeSeriesCV.py en {script}")
+        ticker: str,
+        timeframe: str,
+        *,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        thresholds: Optional[List[float]] = None,
+        model: Optional[str] = None,
+        feature_set: Optional[str] = None,
+        days: Optional[int] = None,
+        tp: Optional[float] = None,
+        sl: Optional[float] = None,
+        time_limit: Optional[int] = None,
+        features_csv: Optional[str] = None,
+        n_splits: Optional[int] = None,
+        test_size: Optional[int] = None,
+) -> Tuple[int, str]:
+    """Lanza RSH_TimeseriesCV.py (sin subcomandos)."""
+    py = sys.executable
+    script = (ROOT / "RSH_TimeseriesCV.py").as_posix()  # ✅ script correcto
 
-    args = [sys.executable, str(script), "--ticker", ticker, "--timeframe", timeframe]
+    args = [py, script, "--ticker", ticker, "--timeframe", timeframe]
+    if date_from:    args += ["--date_from", date_from]
+    if date_to:      args += ["--date_to", date_to]
+    if thresholds:   args += ["--thresholds", ",".join(str(x) for x in thresholds)]
+    if model:        args += ["--model", model]
+    if feature_set:  args += ["--feature_set", feature_set]
+    if days is not None and not (date_from or date_to): args += ["--days", str(int(days))]
+    if tp is not None:         args += ["--tp", str(float(tp))]
+    if sl is not None:         args += ["--sl", str(float(sl))]
+    if time_limit is not None: args += ["--time_limit", str(int(time_limit))]  # o --candle_limit si así lo usa tu CLI
+    if features_csv:           args += ["--features", features_csv]
+    if n_splits is not None:   args += ["--n_splits", str(int(n_splits))]
+    if test_size is not None:  args += ["--test_size", str(int(test_size))]
 
-    if date_from:
-        args += ["--date_from", date_from]
-    if date_to:
-        args += ["--date_to", date_to]
-    if thresholds and len(thresholds) > 0:
-        args += ["--thresholds", ",".join(str(float(x)) for x in thresholds)]
-    if model:
-        args += ["--model", model]
-    if feature_set:
-        args += ["--feature_set", feature_set]
-    if days is not None and not (date_from or date_to):
-        args += ["--days", str(int(days))]
-    if tp is not None:
-        args += ["--tp", str(float(tp))]
-    if sl is not None:
-        args += ["--sl", str(float(sl))]
-    if time_limit is not None:
-        args += ["--time_limit", str(int(time_limit))]
-    if features_csv:
-        args += ["--features", features_csv]
-    if n_splits is not None:
-        args += ["--n_splits", str(int(n_splits))]
-    if test_size is not None:
-        args += ["--test_size", str(int(test_size))]
-
-    try:
-        proc = subprocess.run(args, check=False, capture_output=capture_output, text=True)
-        out = (proc.stdout or "") + ("\n" + (proc.stderr or "") if proc.stderr else "")
-        return (proc.returncode, out)
-    except Exception as e:
-        return (1, f"Error lanzando CV: {e}")
+    pr = subprocess.run(args, capture_output=True, text=True)
+    out = pr.stdout + ("\nSTDERR:\n" + pr.stderr if pr.stderr else "")
+    return pr.returncode, out
 
 
 def _read_cv_json(ticker: str, timeframe: str) -> dict | None:
@@ -144,85 +132,70 @@ def _read_cv_json(ticker: str, timeframe: str) -> dict | None:
 
 
 def _run_scenarios_subprocess(
-    ticker: str,
-    timeframe: str,
-    *,
-    models_csv: str,
-    features_csv: str | None,
-    feature_set: str | None,
-    thresholds_csv: str | None,
-    tp_grid: str | None,
-    sl_grid: str | None,
-    tl_grid: str | None,
-    iter_thr_bt: bool,
-    date_from: str | None,
-    date_to: str | None,
-    days: int | None,
-    n_splits: int | None,
-    test_size: int | None,
-    scheme: str | None,
-    embargo: int | None,
-    purge: int | None,
-    tp: float | None,
-    sl: float | None,
-    couple_labeling_exec: bool,
-    time_limit: int | None,
-    primary_metric: str,
-    min_trades: int,
-) -> tuple[int, str]:
-    """Lanza RSH_Scenarios.py para un único run MLflow por ticker."""
-    script = ROOT / "RSH_Scenarios.py"
-    if not script.exists():
-        return (1, f"No encuentro {script}")
-    args = [sys.executable, str(script),
-            "--ticker", ticker, "--timeframe", timeframe,
-            "--models", models_csv,
-            "--primary_metric", primary_metric,
-            "--min_trades", str(int(min_trades))]
-    if features_csv:
-        args += ["--features", features_csv]
-    else:
-        args += ["--feature_set", feature_set or "core"]
-    if thresholds_csv:
-        args += ["--thresholds", thresholds_csv]
-    if tp_grid:
-        args += ["--tp_grid", tp_grid]
-    if sl_grid:
-        args += ["--sl_grid", sl_grid]
-    if tl_grid:
-        args += ["--tl_grid", tl_grid]
-    if iter_thr_bt:
-        args += ["--iter_thr_in_bt"]
-    if date_from:
-        args += ["--date_from", date_from]
-    if date_to:
-        args += ["--date_to", date_to]
-    if days is not None:
-        args += ["--days", str(int(days))]
-    if n_splits is not None:
-        args += ["--n_splits", str(int(n_splits))]
-    if test_size is not None:
-        args += ["--test_size", str(int(test_size))]
-    if scheme:
-        args += ["--scheme", scheme]
-    if embargo is not None:
-        args += ["--embargo", str(int(embargo))]
-    if purge is not None:
-        args += ["--purge", str(int(purge))]
-    if tp is not None:
-        args += ["--tp", str(float(tp))]
-    if sl is not None:
-        args += ["--sl", str(float(sl))]
-    if time_limit is not None:
-        args += ["--time_limit", str(int(time_limit))]
-    if couple_labeling_exec:
-        args += ["--couple_labeling_exec"]
-    else:
-        args += ["--no_couple_labeling_exec"]
+        *,
+        ticker: str,
+        timeframe: str,
+        models_csv: str,
+        features_csv: Optional[str],
+        feature_set: Optional[str],
+        thresholds_csv: Optional[str],
+        tp_grid: str,
+        sl_grid: str,
+        tl_grid: str,
+        iter_thr_bt: bool,
+        date_from: Optional[str],
+        date_to: Optional[str],
+        days: Optional[int],
+        n_splits: Optional[int],
+        test_size: Optional[int],
+        scheme: str,
+        embargo: int,
+        purge: int,
+        primary_metric: str,
+        min_trades: int,
+        couple_labeling_exec: bool,
+) -> Tuple[int, str]:
+    """Lanza RSH_Scenarios.py (sin subcomandos)."""
+    py = sys.executable
+    script = (ROOT / "RSH_Scenarios.py").as_posix()  # ✅ script correcto
 
-    proc = subprocess.run(args, check=False, capture_output=True, text=True)
-    out = (proc.stdout or "") + ("\n" + (proc.stderr or "") if proc.stderr else "")
-    return (proc.returncode, out)
+    # si tu script usa --candle_limit en vez de --tl_grid, cambia el nombre aquí:
+    FLAG_TL_GRID = "--tl_grid"
+
+    args = [
+        py, script,
+        "--ticker", ticker,
+        "--timeframe", timeframe,
+        "--models", models_csv,
+        "--scheme", scheme,
+        "--embargo", str(int(embargo)),
+        "--purge", str(int(purge)),
+        "--primary_metric", primary_metric,
+        "--min_trades", str(int(min_trades)),
+    ]
+    if features_csv:   args += ["--features", features_csv]
+    if feature_set:    args += ["--feature_set", feature_set]
+    if thresholds_csv: args += ["--thresholds", thresholds_csv]
+    if tp_grid:        args += ["--tp_grid", tp_grid]
+    if sl_grid:        args += ["--sl_grid", sl_grid]
+    if tl_grid:        args += [FLAG_TL_GRID, tl_grid]
+    if iter_thr_bt:    args += ["--iter_thr_in_bt"]   # ✅ nombre real del flag
+    if date_from:      args += ["--date_from", date_from]
+    if date_to:        args += ["--date_to", date_to]
+    if days is not None and not (date_from or date_to):
+                       args += ["--days", str(int(days))]
+    if n_splits is not None:
+                       args += ["--n_splits", str(int(n_splits))]
+    if test_size is not None:
+                       args += ["--test_size", str(int(test_size))]
+    if couple_labeling_exec:
+                       args += ["--couple_labeling_exec"]
+
+    pr = subprocess.run(args, capture_output=True, text=True)
+    out = pr.stdout + ("\nSTDERR:\n" + pr.stderr if pr.stderr else "")
+    return pr.returncode, out
+
+
 
 
 # ---------------------- UI base ----------------------
@@ -282,7 +255,7 @@ if ib_import_status() != "ok":
                 st.error(f"Fallo instalando ib-insync: {e}")
 
 # ------------------ NAV ------------------
-tab = st.sidebar.radio("Módulo", ["Datos", "Research", "Entrenamiento", "Live"], index=0)
+tab = st.sidebar.radio("Módulo", ["Datos", "Research", "Entrenamiento", "Análisis","Live"], index=0)
 
 # ================== TAB: DATOS ==================
 if tab == "Datos":
@@ -510,351 +483,663 @@ if tab == "Datos":
 
 # ================== TAB: RESEARCH ==================
 elif tab == "Research":
-    st.header("🔬 Research (CV multi-modelo + grid en un único run por ticker)")
+    # ============== TAB: RESEARCH (limpia y eficiente) ==============
 
-    # ---------- Lanzador ----------
-    st.subheader("🚀 Lanzador de escenarios (single-run)")
+    from pathlib import Path
+    import sys, platform, subprocess, contextlib
+    from typing import List, Optional, Tuple
+    import datetime as dt
 
-    # ✅ Nuevo: acoplar labeling y backtest (mismo grid TP/SL/TL/threshold)
-    couple_labeling_exec = st.checkbox(
-        "Acoplar labeling y backtest (usar el mismo grid para TP/SL/TL/threshold)",
-        value=True,
-        help=(
-            "Si está activado, la CV (labeling) se ejecuta por cada combinación del grid "
-            "usando exactamente los mismos TP/SL/TimeLimit/Threshold que el backtest. "
-            "Así cada run corresponde a una única combinación coherente."
-        ),
-        key="rsh_coupled",
-    )
+    import streamlit as st
 
-    # timeframe
-    timeframes = ["1min", "5mins", "15mins", "1hour", "1day"]
-    default_tf = getattr(S, "timeframe_default", "5mins")
-    idx = timeframes.index(default_tf) if default_tf in timeframes else 1
-    timeframe = st.selectbox("Timeframe", timeframes, index=idx, key="rsh_tf")
 
-    # tickers (archivo o pegar)
+    # ---- Helpers de UI seguros + control de ejecución ----
+    def safe_ui(fn):
+        """Evita romper la app si el WebSocket ya se cerró."""
+        with contextlib.suppress(Exception):
+            fn()
+
+
+    if "running" not in st.session_state:
+        st.session_state.running = False
+    if "cancel" not in st.session_state:
+        st.session_state.cancel = False
+
+
+    def start_run():
+        st.session_state.running = True
+        st.session_state.cancel = False
+
+
+    def stop_run():
+        st.session_state.cancel = True
+
+
+    # ---- Rutas e imports de tu repo ----
+    ROOT = Path(__file__).resolve().parents[1]
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    import settings as settings
+
+    S = settings.S
+    from utils.data_update import get_tickers_from_file
+
+    # Parche Win para stdout UTF-8 (no imprescindible)
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    except Exception:
+        pass
+
+    # ---- Render de la pestaña Research ----
+    def render_tab_research():
+        st.header("🔬 Research (grid coherente o CV)")
+
+        with st.expander("⚙️ Configuración y selección de datos", expanded=True):
+            couple_labeling_exec = st.checkbox(
+                "Acoplar labeling + backtest", value=True,
+                help=(
+                    "Si está activo, el grid de TP/SL/TL del backtest también se usa en la generación de labels y la CV.\n"
+                    "Así cada run corresponde a una única combinación coherente."),
+                key="rsh_coupled",
+            )
+
+            # timeframe
+            timeframes = ["1min", "5mins", "15mins", "1hour", "1day"]
+            default_tf = getattr(S, "timeframe_default", "5mins")
+            idx = timeframes.index(default_tf) if default_tf in timeframes else 1
+            timeframe = st.selectbox("Timeframe", timeframes, index=idx, key="rsh_tf")
+
+            # tickers (archivo o pegar)
+            cfg_dir = Path(getattr(S, "config_path"))
+            default_txt = cfg_dir / "sp500_tickers.txt"
+            src = st.radio("Origen de tickers", ["Archivo (.txt)", "Pegar lista"], horizontal=True, key="rsh_src")
+            tickers: List[str] = []
+            if src == "Archivo (.txt)":
+                st.caption(f"Archivo por defecto: `{default_txt}`")
+                up = st.file_uploader("…o sube otro .txt", type=["txt"], key="rsh_up")
+                if up is None:
+                    try:
+                        tickers = get_tickers_from_file(default_txt)
+                    except Exception as e:
+                        st.error(f"No pude leer {default_txt.name}: {e}")
+                        tickers = []
+                else:
+                    content_txt = up.read().decode("utf-8", errors="ignore")
+                    tickers = [t.strip().upper() for t in content_txt.splitlines() if t.strip()]
+            else:
+                pasted = st.text_area("Tickers (uno por línea)", height=120, placeholder="AAPL\nMSFT\nGOOGL",
+                                      key="rsh_paste")
+                tickers = [t.strip().upper() for t in (pasted or "").splitlines() if t.strip()]
+
+            # ======== Valores por defecto que pediste ========
+            default_from = dt.date(2025, 1, 1)
+            default_to = dt.date(2025, 6, 30)
+            # ================================================
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                date_from = st.date_input("Desde", value=default_from, key="rsh_from")
+            with c2:
+                date_to = st.date_input("Hasta", value=default_to, key="rsh_to")
+            with c3:
+                days_hist = st.number_input("Días de histórico (si no fechas)", min_value=0, max_value=2000, value=0,
+                                            step=20, key="rsh_days")
+
+            c4, c5, c6 = st.columns(3)
+            with c4:
+                models_sel = st.multiselect("Modelos", options=["xgb", "rf", "logreg"], default=["xgb"],
+                                            key="rsh_models")
+            with c5:
+                feature_set = st.text_input("Feature set (legacy, opcional)", value="", key="rsh_featset")
+            with c6:
+                st.caption("Label/triple-barrier (si *no* acoplas)")
+                if not couple_labeling_exec:
+                    tp_lbl = st.number_input("TP× (labeling)", min_value=0.1, max_value=10.0, value=3.0, step=0.1,
+                                             key="rsh_tp_lbl")
+                    sl_lbl = st.number_input("SL× (labeling)", min_value=0.1, max_value=10.0, value=2.0, step=0.1,
+                                             key="rsh_sl_lbl")
+                    tl_lbl = st.number_input("Time limit (labeling, barras)", min_value=1, max_value=500, value=16,
+                                             step=1, key="rsh_tl_lbl")
+                else:
+                    st.caption("🔗 Acoplado: la CV usará el grid de TP/SL/TL del backtest.")
+                    tp_lbl = sl_lbl = tl_lbl = None
+
+            # Features seleccionables — por defecto TODAS seleccionadas
+            try:
+                feat_keys = sorted(list(FEATURE_REG.keys()))
+            except Exception:
+                feat_keys = []
+            st.markdown("**Features seleccionables (engine.features):**")
+            selected_feats = st.multiselect(
+                "Selecciona features (vacío = usar 'feature_set' legacy)",
+                options=feat_keys,
+                default=feat_keys,  # ✅ todas por defecto
+                key="rsh_feat_sel"
+            )
+            features_csv = ",".join(selected_feats) if selected_feats else None
+
+            # thresholds & grids
+            default_thr = getattr(S, "cv_threshold_grid", [0.55, 0.6, 0.65, 0.7, 0.75, 0.8])
+            thr_text = st.text_input("Thresholds (CSV, 0–1)", value=",".join(str(x) for x in default_thr),
+                                     key="rsh_thr")
+
+            # ✅ TP/SL grid por defecto 2,3,4 — Candle limit 16
+            tp_grid_txt = st.text_input("TP grid (multiplicadores ATR)", value="2,3,4", key="rsh_tpgrid")
+            sl_grid_txt = st.text_input("SL grid (multiplicadores ATR)", value="2,3,4", key="rsh_slgrid")
+            tl_grid_txt = st.text_input("Time limit grid (barras)", value="16", key="rsh_tlgrid")
+
+            iter_thr_in_bt = st.checkbox("Iterar thresholds dentro del backtest (si acoplado)", value=True,
+                                         key="rsh_iter_thr_bt")
+
+            c7, c8 = st.columns(2)
+            with c7:
+                n_splits = st.number_input("CV - n_splits", min_value=3, max_value=15, value=5, step=1,
+                                           key="rsh_nsplits")
+            with c8:
+                test_size = st.number_input("CV - test_size (barras)", min_value=50, max_value=3000, value=400, step=50,
+                                            key="rsh_testsize")
+
+            c9, c10 = st.columns(2)
+            with c9:
+                primary_metric = st.selectbox("Métrica principal", options=["sharpe", "sortino", "cagr", "winrate"],
+                                              index=0, key="rsh_metric")
+            with c10:
+                min_trades = st.number_input("Mínimo nº de trades", min_value=5, max_value=200, value=20, step=1,
+                                             key="rsh_mintrades")
+
+        colb1, colb2 = st.columns(2)
+        run_scen_btn = colb1.button("▶️ Ejecutar Research (combinaciones coherentes)", use_container_width=True,
+                                    disabled=st.session_state.running)
+        run_cv_btn = colb2.button("▶️ Solo CV (debug)", use_container_width=True, disabled=st.session_state.running)
+        safe_ui(lambda: st.button("⛔ Cancelar", on_click=stop_run, disabled=not st.session_state.running))
+
+        # trackers
+        log_area = st.empty()
+        # ======== Lanzamiento simplificado: solo progreso ========
+        progress = st.progress(0.0, text="Esperando…")
+
+        if (run_scen_btn or run_cv_btn) and tickers:
+            start_run()
+            try:
+                total = len(tickers)
+                for i, tk in enumerate(tickers, start=1):
+                    if st.session_state.cancel:
+                        break
+
+                    # actualiza progreso
+                    pct = i / total
+                    safe_ui(lambda: progress.progress(
+                        pct,
+                        text=f"Procesando {tk} ({i}/{total})…"
+                    ))
+
+                    # === Llamada al runner correcto ===
+                    if run_cv_btn and not run_scen_btn:
+                        rc, out = _run_cv_subprocess(
+                            tk, timeframe,
+                            date_from=str(date_from) if date_from else None,
+                            date_to=str(date_to) if date_to else None,
+                            thresholds=[float(x) for x in thr_text.split(",") if str(x).strip() != ""],
+                            model=models_sel[0] if models_sel else "xgb",
+                            feature_set=feature_set if (feature_set and not selected_feats) else None,
+                            days=None if (date_from and date_to) else 0,
+                            tp=float(tp_lbl) if (tp_lbl is not None) else None,
+                            sl=float(sl_lbl) if (sl_lbl is not None) else None,
+                            time_limit=int(tl_lbl) if (tl_lbl is not None) else None,
+                            features_csv=features_csv,
+                            n_splits=int(n_splits) if n_splits else None,
+                            test_size=int(test_size) if test_size else None,
+                        )
+                    else:
+                        rc, out = _run_scenarios_subprocess(
+                            ticker=tk, timeframe=timeframe,
+                            models_csv=",".join(models_sel) if models_sel else "xgb",
+                            features_csv=features_csv,
+                            feature_set=feature_set if (feature_set and not selected_feats) else None,
+                            thresholds_csv=thr_text if thr_text.strip() else None,
+                            tp_grid=tp_grid_txt, sl_grid=sl_grid_txt, tl_grid=tl_grid_txt,
+                            iter_thr_bt=bool(iter_thr_in_bt),
+                            date_from=str(date_from) if date_from else None,
+                            date_to=str(date_to) if date_to else None,
+                            days=None if (date_from and date_to) else 0,
+                            n_splits=int(n_splits) if n_splits else None,
+                            test_size=int(test_size) if test_size else None,
+                            scheme="expanding", embargo=16, purge=16,
+                            primary_metric=primary_metric, min_trades=int(min_trades),
+                            couple_labeling_exec=bool(couple_labeling_exec),
+                        )
+
+                    # (no pintamos logs, solo seguimos)
+
+                safe_ui(lambda: progress.progress(1.0, text=f"Procesados {total}/{total}"))
+                safe_ui(lambda: st.success("✅ Lanzamiento finalizado."))
+            finally:
+                st.session_state.running = False
+
+
+    render_tab_research()
+    # ---- Ejemplo de uso:
+    # if tab == "Research":
+    #     render_tab_research()
+    # ============ FIN TAB: RESEARCH =============
+
+
+elif tab == "Entrenamiento":
+    st.header("🏋️ Entrenamiento de Modelos ML")
+
+    # ---------- Configuración de entrenamiento ----------
+    st.subheader("⚙️ Configuración")
+
+    # Selección de tickers
     cfg_dir = Path(getattr(S, "config_path"))
     default_txt = cfg_dir / "sp500_tickers.txt"
-    src = st.radio("Origen de tickers", ["Archivo (.txt)", "Pegar lista"], horizontal=True, key="rsh_src")
-    tickers: List[str] = []
+    src = st.radio("Origen de tickers", ["Archivo (.txt)", "Pegar lista", "Ticker único"], horizontal=True,
+                   key="trn_src")
+
+    tickers = []
     if src == "Archivo (.txt)":
         st.caption(f"Archivo por defecto: `{default_txt}`")
-        up = st.file_uploader("…o sube otro .txt", type=["txt"], key="rsh_up")
+        up = st.file_uploader("...o sube otro .txt", type=["txt"], key="trn_up")
         if up is None:
             try:
-                tickers = get_tickers_from_file(default_txt)
+                tickers = get_tickers_from_file(default_txt)[:20]  # Limitar para UI
             except Exception as e:
                 st.error(f"No pude leer {default_txt.name}: {e}")
                 tickers = []
         else:
             content = up.read().decode("utf-8", errors="ignore")
-            tickers = [t.strip().upper() for t in content.splitlines() if t.strip()]
+            tickers = [t.strip().upper() for t in content.splitlines() if t.strip()][:20]
+    elif src == "Pegar lista":
+        pasted = st.text_area("Tickers (uno por línea)", height=120, placeholder="AAPL\nMSFT\nGOOGL", key="trn_paste")
+        tickers = [t.strip().upper() for t in pasted.splitlines() if t.strip()][:20]
     else:
-        pasted = st.text_area("Tickers (uno por línea)", height=120, placeholder="AAPL\nMSFT\nGOOGL", key="rsh_paste")
-        tickers = [t.strip().upper() for t in pasted.splitlines() if t.strip()]
-    tickers = sorted(set(tickers))
-    st.success(f"{len(tickers)} tickers cargados")
+        single_ticker = st.text_input("Ticker único", placeholder="AAPL", key="trn_single").strip().upper()
+        tickers = [single_ticker] if single_ticker else []
 
-    # fechas / ventana
-    c1, c2, c3 = st.columns([1, 1, 1])
-    with c1:
-        date_from = st.date_input("Fecha FROM (UTC)", value=None, key="rsh_from")
-        date_from_str = date_from.strftime("%Y-%m-%d") if date_from else None
-    with c2:
-        date_to = st.date_input("Fecha TO (UTC)", value=None, key="rsh_to")
-        date_to_str = date_to.strftime("%Y-%m-%d") if date_to else None
-    with c3:
-        days_hist = st.number_input("Últimos N días (solo si no hay fechas)", min_value=0, value=0, step=5, key="rsh_days", help="Se usa solo si date_from/date_to están vacíos")
+    st.info(f"📊 {len(tickers)} tickers seleccionados para entrenamiento")
 
-    # CV config básica
-    c_ns, c_ts = st.columns([1, 1])
-    with c_ns:
-        n_splits = st.number_input("n_splits", min_value=2, max_value=10, value=int(getattr(S, "n_splits_cv", 5)), step=1, key="rsh_ns")
-    with c_ts:
-        test_size = st.number_input("test_size (barras)", min_value=20, max_value=2000, value=int(getattr(S, "cv_test_size", 500)), step=10, key="rsh_ts")
+    # Parámetros de entrenamiento
+    col1, col2, col3 = st.columns([1, 1, 1])
 
-    # modelos & features
-    c4, c5, c6 = st.columns([1, 1, 1])
-    with c4:
-        models_sel = st.multiselect("Modelos", ["xgb", "rf", "logreg"], default=["xgb"], key="rsh_models")
-        models_csv = ",".join(models_sel) if models_sel else "xgb"
-    with c5:
-        feature_set = st.selectbox("Feature set (legacy)", options=["core", "core+vol", "all"],
-                                   index=["core","core+vol","all"].index(getattr(S, "feature_set", "core")),
-                                   key="rsh_featset")
-    with c6:
-        st.caption("Label/triple-barrier (si *no* acoplas)")
-        if not couple_labeling_exec:
-            tp_lbl = st.number_input("TP× (labeling)", min_value=0.1, max_value=10.0, value=3.0, step=0.1, key="rsh_tp_lbl")
-            sl_lbl = st.number_input("SL× (labeling)", min_value=0.1, max_value=10.0, value=2.0, step=0.1, key="rsh_sl_lbl")
-            tl_lbl = st.number_input("Time limit (labeling, barras)", min_value=1, max_value=500, value=16, step=1, key="rsh_tl_lbl")
-        else:
-            st.caption("🔗 Acoplado: la CV usará el grid de TP/SL/TL del backtest.")
-            tp_lbl = sl_lbl = tl_lbl = None
+    with col1:
+        timeframe = st.selectbox("Timeframe", ["1min", "5mins", "15mins", "1hour", "1day"],
+                                 index=1, key="trn_tf")
+        model_type = st.selectbox("Modelo ML", ["xgb", "rf", "logreg"], index=0, key="trn_model")
+        feature_set = st.selectbox("Feature Set", ["core", "core+vol", "all"], index=1, key="trn_featset")
 
-    # Features seleccionables
-    st.markdown("**Features seleccionables (engine.features):**")
-    feat_keys = sorted(list(FEATURE_REG.keys()))
-    selected_feats = st.multiselect(
-        "Selecciona features (opcional; vacío = usar 'feature_set' legacy)",
-        options=feat_keys,
-        default=["sma_20","ema_12","rsi_14","atr_14","gk_14","vwap_20","volz_20"],
-        key="rsh_feat_sel"
-    )
-    features_csv = ",".join(selected_feats) if selected_feats else None
+    with col2:
+        days = st.number_input("Días de historia", min_value=30, max_value=365, value=90, step=10, key="trn_days")
+        tp_mult = st.number_input("TP Multiplier (ATR)", min_value=0.5, max_value=10.0, value=2.0, step=0.5,
+                                  key="trn_tp")
+        sl_mult = st.number_input("SL Multiplier (ATR)", min_value=0.5, max_value=10.0, value=1.5, step=0.5,
+                                  key="trn_sl")
 
-    # thresholds & grids
-    default_thr = getattr(S, "cv_threshold_grid", [0.55, 0.6, 0.65, 0.7, 0.75, 0.8])
-    thr_text = st.text_input("Thresholds (CSV, 0–1)", value=",".join(str(x) for x in default_thr), key="rsh_thr")
-    tp_grid_txt = st.text_input("TP grid (CSV, multiplicadores absolutos)", value="1,2,3", key="rsh_tpgrid")
-    sl_grid_txt = st.text_input("SL grid (CSV, multiplicadores absolutos)", value="1,2,3", key="rsh_slgrid")
-    tl_grid_txt = st.text_input("Time limit grid (CSV, barras)", value="8,12,16", key="rsh_tlgrid")
-    iter_thr_in_bt = st.checkbox("Iterar también los thresholds en el backtest", value=True, key="iter_thr_bt")
+    with col3:
+        time_limit = st.number_input("Time Limit (barras)", min_value=4, max_value=100, value=16, step=2, key="trn_tl")
+        force_relabel = st.checkbox("Forzar re-etiquetado", value=False, key="trn_relabel")
+        overwrite = st.checkbox("Sobrescribir modelos existentes", value=False, key="trn_overwrite")
 
-    # selección del “mejor”
-    cmet, cmtr = st.columns([1, 1])
-    with cmet:
-        primary_metric = st.selectbox("Métrica primaria de selección", options=["net_return","sharpe","win_rate","profit_factor"], index=0)
-    with cmtr:
-        min_trades = st.number_input("Mínimo de trades para ser candidato", min_value=0, max_value=10000, value=20, step=5)
+    # Opciones avanzadas
+    with st.expander("⚙️ Configuración Avanzada"):
+        col_adv1, col_adv2 = st.columns([1, 1])
 
-    # botones
-    colb1, colb2 = st.columns([1, 1])
-    run_scen_btn = colb1.button("🏁 Ejecutar Research (run único por ticker)", type="primary", use_container_width=True)
-    run_cv_btn = colb2.button("▶️ Solo CV (debug)", use_container_width=True)
+        with col_adv1:
+            date_from = st.date_input("Fecha FROM (opcional)", value=None, key="trn_from")
+            date_to = st.date_input("Fecha TO (opcional)", value=None, key="trn_to")
 
-    # trackers
-    log_area = st.empty()
-    progress = st.progress(0.0, text="Esperando…")
+        with col_adv2:
+            inference_threshold = st.number_input("Threshold de inferencia",
+                                                  min_value=0.1, max_value=0.9, value=0.7, step=0.05, key="trn_thresh")
+            hparams_json = st.text_area("Hiperparámetros (JSON)",
+                                        placeholder='{"max_depth": 6, "n_estimators": 200}', key="trn_hparams")
 
-    if (run_scen_btn or run_cv_btn) and tickers:
-        exp_name = _mlflow_setup_for_app()
-        logs = []
-        total = len(tickers)
-        done = 0
-
-        for tk in tickers:
-            progress.progress(done / total, text=f"Procesando {tk}…")
-
-            if run_cv_btn and not run_scen_btn:
-                # Solo CV “suelta” (útil para comprobar datos/fechas/features)
-                rc, out = _run_cv_subprocess(
-                    tk, timeframe,
-                    date_from=date_from_str, date_to=date_to_str,
-                    thresholds=[float(x) for x in thr_text.split(",") if str(x).strip() != ""],
-                    model=models_sel[0] if models_sel else "xgb",
-                    feature_set=feature_set if not selected_feats else None,
-                    days=int(days_hist) if days_hist else None,
-                    # estos tres solo se aplican si NO acoplas; si acoplas se ignoran por el script
-                    tp=float(tp_lbl) if (tp_lbl is not None) else None,
-                    sl=float(sl_lbl) if (sl_lbl is not None) else None,
-                    time_limit=int(tl_lbl) if (tl_lbl is not None) else None,
-                    features_csv=features_csv,
-                    n_splits=int(n_splits) if n_splits else None,
-                    test_size=int(test_size) if test_size else None,
-                )
-            else:
-                # Research: un run por combinación coherente
-                rc, out = _run_scenarios_subprocess(
-                    ticker=tk, timeframe=timeframe,
-                    models_csv=",".join(models_sel) if models_sel else "xgb",
-                    features_csv=features_csv,
-                    feature_set=feature_set,
-                    thresholds_csv=thr_text if thr_text.strip() else None,
-                    tp_grid=tp_grid_txt, sl_grid=sl_grid_txt, tl_grid=tl_grid_txt,
-                    iter_thr_bt=bool(iter_thr_in_bt),
-                    date_from=date_from_str, date_to=date_to_str, days=int(days_hist) if days_hist else None,
-                    n_splits=int(n_splits) if n_splits else None,
-                    test_size=int(test_size) if test_size else None,
-                    scheme="expanding", embargo=16, purge=16,
-                    # labeling manual SOLO si está des-acoplado:
-                    tp=float(tp_lbl) if (not couple_labeling_exec and tp_lbl is not None) else None,
-                    sl=float(sl_lbl) if (not couple_labeling_exec and sl_lbl is not None) else None,
-                    time_limit=int(tl_lbl) if (not couple_labeling_exec and tl_lbl is not None) else None,
-                    primary_metric=primary_metric, min_trades=int(min_trades),
-                    # ✅ Flag de acoplamiento hacia el script
-                    couple_labeling_exec=bool(couple_labeling_exec),
-                )
-
-            returncode_msg = "OK" if rc == 0 else "ERROR"
-            logs.append(f"=== {tk} / {timeframe} ===\n{returncode_msg}:\n{out}\n")
-            log_area.code("\n".join(logs[-8:]), language="bash")
-
-            done += 1
-            progress.progress(done / total, text=f"Procesados {done}/{total}")
-
-        st.success("Lanzamiento finalizado. Revisa la sección de visualización y/o la UI de MLflow.")
-    # En APP_cuadro_mando.py, añadir una nueva sección después del lanzador de scenarios:
-
-    # ---------- Panel de Calidad de Modelos ----------
+    # ---------- Estado de modelos existentes ----------
     st.divider()
-    st.subheader("📊 Panel de Calidad de Modelos")
+    st.subheader("📁 Estado de Modelos Existentes")
 
-    if st.button("🔍 Analizar Calidad de Runs Recientes"):
-        try:
-            exp_name = _mlflow_setup_for_app()
-            client = MlflowClient()
-            experiment = client.get_experiment_by_name(exp_name)
+    if st.button("🔍 Revisar modelos existentes"):
+        models_dir = Path(getattr(S, "models_path", "02_models"))
+        if models_dir.exists():
+            model_status = []
+            for ticker in tickers[:10]:  # Limitar para performance
+                ticker_dir = models_dir / ticker.upper()
+                pipeline_path = ticker_dir / "pipeline.pkl"
+                meta_path = ticker_dir / "pipeline_meta.json"
 
-            if experiment:
-                # Obtener runs recientes
-                runs = client.search_runs(
-                    experiment_ids=[experiment.experiment_id],
-                    max_results=50,
-                    order_by=["start_time DESC"]
-                )
+                if pipeline_path.exists():
+                    try:
+                        # Leer metadata
+                        if meta_path.exists():
+                            meta = json.loads(meta_path.read_text())
+                            model_info = {
+                                "ticker": ticker,
+                                "status": "✅ Existe",
+                                "model_type": meta.get("model_type", "N/A"),
+                                "feature_set": meta.get("feature_set", "N/A"),
+                                "features_count": len(meta.get("features", [])),
+                                "tp_mult": meta.get("tp_multiplier", "N/A"),
+                                "sl_mult": meta.get("sl_multiplier", "N/A"),
+                            }
+                        else:
+                            model_info = {
+                                "ticker": ticker,
+                                "status": "⚠️ Sin metadata",
+                                "model_type": "N/A", "feature_set": "N/A",
+                                "features_count": "N/A", "tp_mult": "N/A", "sl_mult": "N/A"
+                            }
+                    except Exception:
+                        model_info = {
+                            "ticker": ticker,
+                            "status": "❌ Error",
+                            "model_type": "N/A", "feature_set": "N/A",
+                            "features_count": "N/A", "tp_mult": "N/A", "sl_mult": "N/A"
+                        }
+                else:
+                    model_info = {
+                        "ticker": ticker,
+                        "status": "❌ No existe",
+                        "model_type": "N/A", "feature_set": "N/A",
+                        "features_count": "N/A", "tp_mult": "N/A", "sl_mult": "N/A"
+                    }
+                model_status.append(model_info)
 
-                if runs:
-                    # Extraer métricas de calidad
-                    quality_data = []
-                    for run in runs:
-                        metrics = run.data.metrics
-                        params = run.data.params
+            if model_status:
+                df_models = pd.DataFrame(model_status)
+                st.dataframe(df_models, use_container_width=True, hide_index=True)
+        else:
+            st.info("📁 Directorio de modelos no existe aún")
 
-                        quality_data.append({
-                            "run_name": run.info.run_name,
-                            "ticker": params.get("ticker", "N/A"),
-                            "model": params.get("model", "N/A"),
-                            "temporal_coverage": metrics.get("temporal_coverage_pct", 0),
-                            "trading_days_actual": metrics.get("trading_days_actual", 0),
-                            "missing_days": metrics.get("missing_days", 0),
-                            "feature_count": metrics.get("feature_count", 0),
-                            "top5_concentration": metrics.get("top5_feature_concentration", 0),
-                            "zero_features": metrics.get("zero_importance_features", 0),
-                            "net_return": metrics.get("net_return", 0),
-                            "sharpe": metrics.get("sharpe", 0),
-                            "n_trades": metrics.get("n_trades", 0),
-                            "data_quality": run.data.tags.get("data_quality", "UNKNOWN"),
-                            "feature_diversity": run.data.tags.get("feature_diversity", "UNKNOWN")
+    # ---------- Lanzador de entrenamiento ----------
+    st.divider()
+    st.subheader("🚀 Entrenamiento")
+
+    if not tickers:
+        st.warning("⚠️ Selecciona al menos un ticker para entrenar")
+    else:
+        progress_placeholder = st.empty()
+        log_placeholder = st.empty()
+
+        if st.button(f"🏋️ Entrenar {len(tickers)} modelo(s)", type="primary", use_container_width=True):
+            # Preparar parámetros
+            overrides = {
+                "tp_multiplier": float(tp_mult),
+                "sl_multiplier": float(sl_mult),
+                "time_limit_candles": int(time_limit),
+                "model": model_type,
+                "feature_set": feature_set,
+                "days": int(days),
+                "date_from": date_from.strftime("%Y-%m-%d") if date_from else None,
+                "date_to": date_to.strftime("%Y-%m-%d") if date_to else None,
+                "inference_threshold": float(inference_threshold),
+            }
+
+            # Parsear hiperparámetros JSON
+            if hparams_json.strip():
+                try:
+                    hparams = json.loads(hparams_json)
+                    overrides["hparams"] = hparams
+                except json.JSONDecodeError as e:
+                    st.error(f"Error en JSON de hiperparámetros: {e}")
+                    st.stop()
+
+            # Importar función de entrenamiento
+            try:
+                from TRN_Train import train_ticker
+
+                exp_name = _mlflow_setup_for_app()
+
+                results = []
+                total = len(tickers)
+
+                for i, ticker in enumerate(tickers):
+                    progress_placeholder.progress((i) / total, text=f"Entrenando {ticker}...")
+
+                    try:
+                        # Entrenar modelo
+                        model_path = train_ticker(
+                            ticker=ticker,
+                            timeframe=timeframe,
+                            overrides=overrides,
+                            force_relabel=force_relabel,
+                            clean=overwrite,
+                            print_stats=False
+                        )
+
+                        results.append({
+                            "ticker": ticker,
+                            "status": "✅ Éxito",
+                            "model_path": str(model_path),
+                            "error": ""
                         })
 
-                    df_quality = pd.DataFrame(quality_data)
+                        log_placeholder.success(f"✅ {ticker}: Modelo entrenado correctamente")
 
-                    # Filtros
-                    col1, col2, col3 = st.columns([1, 1, 1])
-                    with col1:
-                        min_coverage = st.slider("Cobertura temporal mínima (%)", 0, 100, 80)
-                        df_filtered = df_quality[df_quality["temporal_coverage"] >= min_coverage]
-                    with col2:
-                        max_concentration = st.slider("Concentración máxima top 5 (%)", 0, 100, 80)
-                        df_filtered = df_filtered[df_filtered["top5_concentration"] <= max_concentration]
-                    with col3:
-                        min_trades = st.number_input("Trades mínimos", 0, 1000, 10)
-                        df_filtered = df_filtered[df_filtered["n_trades"] >= min_trades]
+                    except Exception as e:
+                        results.append({
+                            "ticker": ticker,
+                            "status": "❌ Error",
+                            "model_path": "",
+                            "error": str(e)
+                        })
+                        log_placeholder.error(f"❌ {ticker}: {str(e)}")
 
-                    st.write(f"Mostrando {len(df_filtered)}/{len(df_quality)} runs que pasan los filtros de calidad")
+                progress_placeholder.progress(1.0, text="Entrenamiento completado")
 
-                    # Panel de calidad
-                    col_temp, col_feat = st.columns([1, 1])
+                # Mostrar resumen
+                st.success("🎯 Entrenamiento finalizado")
+                df_results = pd.DataFrame(results)
+                st.dataframe(df_results, use_container_width=True, hide_index=True)
 
-                    with col_temp:
-                        st.markdown("**📅 Calidad Temporal**")
-                        quality_counts = df_filtered["data_quality"].value_counts()
+                # Estadísticas
+                success_count = len([r for r in results if "Éxito" in r["status"]])
+                error_count = len([r for r in results if "Error" in r["status"]])
 
-                        for quality, count in quality_counts.items():
-                            color = {
-                                "EXCELLENT": "🟢", "GOOD": "🟡",
-                                "ACCEPTABLE": "🟠", "POOR": "🔴",
-                                "CRITICAL": "❌"
-                            }.get(quality, "⚪")
-                            st.write(f"{color} {quality}: {count} runs")
+                col_s1, col_s2 = st.columns([1, 1])
+                col_s1.metric("✅ Modelos entrenados", success_count)
+                col_s2.metric("❌ Errores", error_count)
 
-                        # Gráfico de cobertura temporal
-                        if len(df_filtered) > 0:
-                            st.bar_chart(df_filtered.set_index("ticker")["temporal_coverage"])
+                if success_count > 0:
+                    st.info(f"🎉 {success_count} modelos listos para usar en Research y Live Trading")
 
-                    with col_feat:
-                        st.markdown("**🎯 Diversidad de Features**")
-                        diversity_counts = df_filtered["feature_diversity"].value_counts()
+            except ImportError as e:
+                st.error(f"Error importando TRN_Train: {e}")
+            except Exception as e:
+                st.error(f"Error durante el entrenamiento: {e}")
 
-                        for diversity, count in diversity_counts.items():
-                            color = {"HIGH": "🟢", "MEDIUM": "🟡", "LOW": "🔴"}.get(diversity, "⚪")
-                            st.write(f"{color} {diversity}: {count} runs")
-
-                        # Gráfico de concentración
-                        if len(df_filtered) > 0:
-                            st.bar_chart(df_filtered.set_index("ticker")["top5_concentration"])
-
-                    # Tabla detallada
-                    st.markdown("**📋 Detalle de Runs**")
-                    display_cols = [
-                        "ticker", "model", "temporal_coverage", "missing_days",
-                        "feature_count", "top5_concentration", "zero_features",
-                        "net_return", "sharpe", "n_trades"
-                    ]
-
-                    st.dataframe(
-                        df_filtered[display_cols].round(2),
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                    # Alertas automáticas
-                    st.markdown("**⚠️ Alertas de Calidad**")
-                    alerts = []
-
-                    low_coverage = df_filtered[df_filtered["temporal_coverage"] < 80]
-                    if len(low_coverage) > 0:
-                        alerts.append(f"🔴 {len(low_coverage)} runs con cobertura temporal < 80%")
-
-                    high_concentration = df_filtered[df_filtered["top5_concentration"] > 85]
-                    if len(high_concentration) > 0:
-                        alerts.append(f"🟡 {len(high_concentration)} runs con alta concentración de features (>85%)")
-
-                    few_trades = df_filtered[df_filtered["n_trades"] < 20]
-                    if len(few_trades) > 0:
-                        alerts.append(f"🟠 {len(few_trades)} runs con pocos trades (<20)")
-
-                    if alerts:
-                        for alert in alerts:
-                            st.warning(alert)
-                    else:
-                        st.success("✅ Todos los runs pasan los controles de calidad básicos")
-
-                else:
-                    st.info("No se encontraron runs recientes para analizar")
-            else:
-                st.error("No se encontró el experimento MLflow")
-
-        except Exception as e:
-            st.error(f"Error analizando calidad: {e}")
-
-    # ---------- Visualización de Features Top ----------
+    # ---------- Información útil ----------
     st.divider()
-    st.subheader("🎯 Features Más Importantes")
+    st.subheader("ℹ️ Información")
 
-    ticker_analysis = st.selectbox("Selecciona ticker para análisis de features",
-                                   options=tickers if tickers else ["AAPL"],
-                                   key="feature_analysis_ticker")
+    with st.expander("📖 Guía de uso"):
+        st.markdown("""
+        **Flujo recomendado:**
+        1. **Entrenar modelos** aquí con parámetros optimizados
+        2. **Verificar en MLflow** que el entrenamiento fue exitoso
+        3. **Usar en Research** para backtesting con modelos reales
+        4. **Deplotar en Live** para trading automático
 
-    if st.button("📊 Analizar Features"):
-        # Esto requeriría acceso a los modelos entrenados
-        # Por ahora, mostrar placeholder
-        st.info("Funcionalidad en desarrollo - requiere acceso a modelos entrenados")
+        **Recomendaciones:**
+        - Usar `core+vol` para features balanceadas
+        - TP/SL basados en análisis previo de volatilidad
+        - Time limit entre 8-24 barras según timeframe
+        - Entrenar con al menos 60-90 días de datos
+        """)
 
-        # Mock data para demostrar la interfaz
-        mock_features = [
-            {"feature": "rsi_14", "importance": 18.5},
-            {"feature": "atr_14", "importance": 15.2},
-            {"feature": "sma_20", "importance": 12.8},
-            {"feature": "vwap_20", "importance": 11.1},
-            {"feature": "ema_12", "importance": 9.7},
+    with st.expander("🔧 Troubleshooting"):
+        st.markdown("""
+        **Errores comunes:**
+        - **Sin datos**: Verifica que el ticker tiene datos en el periodo seleccionado
+        - **Features insuficientes**: Aumenta el periodo de datos o cambia feature_set
+        - **Pocas clases**: Ajusta TP/SL/Time_limit para generar más variedad de labels
+        - **Memoria insuficiente**: Reduce el número de días o entrena de uno en uno
+        """)
+
+elif tab == "Análisis":
+    st.header("📊 Análisis de Performance MLflow")
+
+    data_path = Path("data/mlflow_runs.parquet")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("🔄 Extraer datos de MLflow"):
+            with st.spinner("Extrayendo runs..."):
+                df = extract_mlflow_runs()
+            st.success(f"Extraídos {len(df)} runs")
+
+    with col2:
+        if st.button("📁 Recargar datos (forzar actualización)"):
+            if os.path.exists(data_path):
+                os.remove(data_path)  # Eliminar archivo existente
+            df = extract_mlflow_runs()  # Forzar nueva extracción
+            st.success(f"Datos actualizados: {len(df)} runs")
+
+    if 'df' in locals() and not df.empty:
+        # Extraer ticker y model del run_name
+        # Formato esperado: "MMM_5mins_xgb_thr0.550_tp1x_sl1x_tl8"
+        potential_tags = [col for col in df.columns if
+                          col.isalpha() and col not in ['run_id', 'run_name', 'start_time', 'status']]
+        st.write("Posibles tags:", potential_tags)
+        df['ticker'] = df['run_name'].str.split('_').str[0]
+        df['timeframe'] = df['run_name'].str.split('_').str[1]
+        df['model'] = df['run_name'].str.split('_').str[2]
+
+        # Verificar que funcionó
+        tickers_clean = df['ticker'].dropna().astype(str).unique()
+        st.write("Tickers extraídos:", sorted(tickers_clean))
+        models_clean = df['model'].dropna().astype(str).unique()
+        st.write("Modelos extraídos:", sorted(models_clean))
+
+        # NUEVO: Verificar columnas disponibles
+        st.write(f"Columnas disponibles: {list(df.columns)}")
+
+        # Verificar columnas necesarias
+        required_cols = ['ticker', 'sharpe', 'n_trades', 'model', 'win_rate']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+
+        if missing_cols:
+            st.error(f"Columnas faltantes: {missing_cols}")
+            st.write("Verifica que los runs de MLflow tengan estos parámetros registrados")
+            st.stop()
+
+        # Filtros (solo si las columnas existen)
+        # Reemplazar la sección de filtros existente:
+        st.subheader("🔍 Filtros")
+        col_f1, col_f2, col_f3, col_f4 = st.columns([1, 1, 1, 1])
+
+        with col_f1:
+            min_trades = st.slider("Trades mínimos", 0, int(df['n_trades'].max()), 10)
+            if 'ticker' in df.columns:
+                tickers = st.multiselect("Tickers", sorted(df['ticker'].dropna().astype(str).unique()), default=[])
+
+        with col_f2:
+            sharpe_range = st.slider("Rango Sharpe",
+                                     float(df['sharpe'].min()),
+                                     float(df['sharpe'].max()),
+                                     (0.0, float(df['sharpe'].max())))
+
+        with col_f3:
+            # Filtros de parámetros
+            if 'threshold' in df.columns:
+                threshold_values = sorted(df['threshold'].dropna().unique())
+                selected_thresholds = st.multiselect("Thresholds", threshold_values, default=threshold_values)
+            else:
+                selected_thresholds = []
+
+            if 'tp_multiplier' in df.columns:
+                tp_values = sorted(df['tp_multiplier'].dropna().unique())
+                selected_tp = st.multiselect("TP Multipliers", tp_values, default=tp_values)
+            else:
+                selected_tp = []
+
+        with col_f4:
+            if 'sl_multiplier' in df.columns:
+                sl_values = sorted(df['sl_multiplier'].dropna().unique())
+                selected_sl = st.multiselect("SL Multipliers", sl_values, default=sl_values)
+            else:
+                selected_sl = []
+
+            models = st.multiselect("Modelos", df['model'].dropna().astype(str).unique(),
+                                    default=df['model'].dropna().astype(str).unique())
+
+        # Aplicar todos los filtros
+        filtered = df[
+            (df['n_trades'] >= min_trades) &
+            (df['sharpe'].between(sharpe_range[0], sharpe_range[1])) &
+            (df['model'].isin(models))
+            ]
+
+        if tickers:
+            filtered = filtered[filtered['ticker'].isin(tickers)]
+        if selected_thresholds:
+            filtered = filtered[filtered['threshold'].isin(selected_thresholds)]
+        if selected_tp:
+            filtered = filtered[filtered['tp_multiplier'].isin(selected_tp)]
+        if selected_sl:
+            filtered = filtered[filtered['sl_multiplier'].isin(selected_sl)]
+
+        # Dashboard de métricas
+        st.subheader("📈 Resumen")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+        col_m1.metric("Total Runs", len(filtered))
+        col_m2.metric("Sharpe Promedio", f"{filtered['sharpe'].mean():.2f}")
+        col_m3.metric("Mejor Sharpe", f"{filtered['sharpe'].max():.2f}")
+        col_m4.metric("Win Rate Promedio", f"{filtered['win_rate'].mean():.1%}")
+
+        # Top performers
+        st.subheader("🏆 Top Performers")
+        top_runs = filtered.nlargest(20, 'sharpe')[
+            ['ticker', 'model', 'threshold', 'tp_multiplier', 'sl_multiplier',
+             'sharpe', 'net_return', 'win_rate', 'n_trades']
         ]
+        st.dataframe(top_runs, use_container_width=True, hide_index=True)
 
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            chart_data = pd.DataFrame(mock_features)
-            st.bar_chart(chart_data.set_index("feature")["importance"])
+        # Análisis por parámetros
+        # Reemplazar la sección "Análisis por Parámetros":
+        st.subheader("⚙️ Análisis por Parámetros")
 
-        with col2:
-            st.write("**Top Features:**")
-            for feat in mock_features:
-                st.write(f"• {feat['feature']}: {feat['importance']:.1f}%")
+        # Selector de parámetros para agrupar
+        available_params = ['tp_multiplier', 'sl_multiplier', 'threshold', 'model', 'ticker']
+        available_params = [p for p in available_params if p in df.columns]
 
-elif tab == "Entrenamiento":
-    st.header("🏋️ Entrenamiento")
-    st.info("Próximamente: entrenamiento y registro del mejor modelo por ticker.")
+        group_params = st.multiselect(
+            "Agrupar por parámetros:",
+            available_params,
+            default=['tp_multiplier', 'sl_multiplier', 'threshold'][:len(available_params)]
+        )
+
+        # Selector de métricas para mostrar
+        available_metrics = ['sharpe', 'net_return', 'win_rate', 'profit_factor', 'max_drawdown']
+        available_metrics = [m for m in available_metrics if m in df.columns]
+
+        show_metrics = st.multiselect(
+            "Métricas a mostrar:",
+            available_metrics,
+            default=['sharpe', 'net_return', 'win_rate']
+        )
+
+        if group_params and show_metrics:
+            # Crear análisis agrupado
+            agg_dict = {}
+            for metric in show_metrics:
+                agg_dict[metric] = ['mean', 'count'] if metric == show_metrics[0] else 'mean'
+
+            param_analysis = filtered.groupby(group_params).agg(agg_dict).round(3)
+
+            # Ordenar por la primera métrica (descendente)
+            sort_col = (show_metrics[0], 'mean') if len(show_metrics) > 0 else param_analysis.columns[0]
+            param_analysis = param_analysis.sort_values(sort_col, ascending=False)
+
+            st.dataframe(param_analysis, use_container_width=True)
+
+            # Mostrar estadísticas del agrupamiento
+            st.caption(f"Agrupado por: {', '.join(group_params)} | Mostrando: {', '.join(show_metrics)}")
+        else:
+            st.warning("Selecciona al menos un parámetro de agrupación y una métrica")
 
 elif tab == "Live":
     st.header("🟢 Live (paper)")

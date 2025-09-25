@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/be109a0ad3d2445388a040c232da350d/artifacts
+end_time: 1758735273785
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: be109a0ad3d2445388a040c232da350d
+run_name: ABNB_5mins_xgb_thr0.550_tp2x_sl4x_tl16
+run_uuid: be109a0ad3d2445388a040c232da350d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758735273495
+status: 3
+tags: []
+user_id: Mario_user

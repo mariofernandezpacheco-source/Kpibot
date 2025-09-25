@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/a2f08feb04b944bab314e5ebc844a262/artifacts
+end_time: 1758784154839
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: a2f08feb04b944bab314e5ebc844a262
+run_name: wise-smelt-714
+run_uuid: a2f08feb04b944bab314e5ebc844a262
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758784154800
+status: 3
+tags: []
+user_id: Mario_user

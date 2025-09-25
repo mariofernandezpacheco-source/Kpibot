@@ -120,7 +120,7 @@ def evaluate_model_for_ticker(ticker, timeframe, model_name, model_instance):
         if "label_window" in generate_triple_barrier_labels.__code__.co_varnames:
             label_kwargs["label_window"] = LABEL_WINDOW
 
-        # etiquetas por triple barrera con parámetros desde config
+        # etiquetas por triple barrera con parámetros desde config_
         df = generate_triple_barrier_labels(
             data=df,
             volatility_col="atr_14",
@@ -181,7 +181,7 @@ def evaluate_model_for_ticker(ticker, timeframe, model_name, model_instance):
 def main(tickers_file, timeframe):
     tickers_filepath = (
         Path("../utils") / tickers_file
-    )  # si quieres, también lo pasamos a config.yaml
+    )  # si quieres, también lo pasamos a config_.yaml
     models_to_evaluate = get_models_to_evaluate()
     best_models_config = {}
 

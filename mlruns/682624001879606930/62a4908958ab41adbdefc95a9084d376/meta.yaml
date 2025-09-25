@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/62a4908958ab41adbdefc95a9084d376/artifacts
+end_time: 1758736901033
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 62a4908958ab41adbdefc95a9084d376
+run_name: GOOGL_5mins_xgb_thr0.700_tp4x_sl2x_tl16
+run_uuid: 62a4908958ab41adbdefc95a9084d376
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758736900749
+status: 3
+tags: []
+user_id: Mario_user

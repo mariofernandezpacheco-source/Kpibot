@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/e57c8acef0124327b7c36d213799743f/artifacts
+end_time: 1758734003669
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: e57c8acef0124327b7c36d213799743f
+run_name: inquisitive-swan-6
+run_uuid: e57c8acef0124327b7c36d213799743f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758734003640
+status: 3
+tags: []
+user_id: Mario_user

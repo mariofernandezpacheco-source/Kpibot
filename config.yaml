@@ -2,7 +2,7 @@ paths:
   data: "DAT_data"
   models: "TRN_models"
   logs: "LOG_logs"
-  config: "CFG_config"
+  config: "config"
 
 market:
   tz_ui: "Europe/Madrid"
@@ -49,7 +49,7 @@ mlflow:
   enabled: true
   # Si dejaste mlruns como carpeta separada:
   mlflow_tracking_uri: "file:./mlruns"
-  mlflow_experiment: "PHIBOT"
+  mlflow_experiment: "PHIBOT_TRAINING"
   tags:
     project: "phibot"
     owner: "research"

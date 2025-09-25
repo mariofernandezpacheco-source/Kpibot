@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/c22e5047610b41fb80bd8fc4dc234807/artifacts
+end_time: 1758736399689
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: c22e5047610b41fb80bd8fc4dc234807
+run_name: train/LNT/5mins
+run_uuid: c22e5047610b41fb80bd8fc4dc234807
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758736395852
+status: 3
+tags: []
+user_id: Mario_user

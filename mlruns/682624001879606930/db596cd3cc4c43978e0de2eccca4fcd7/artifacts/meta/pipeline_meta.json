@@ -1,0 +1,15 @@
+{
+  "label_map_mode": "multiclass_3way",
+  "class_order": [
+    0,
+    1,
+    2
+  ],
+  "model_type": "xgb",
+  "seed": 42,
+  "days_history": 180,
+  "tp_multiplier": 3.0,
+  "sl_multiplier": 3.0,
+  "time_limit_candles": 16,
+  "feature_set": "all"
+}

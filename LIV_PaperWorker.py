@@ -28,6 +28,7 @@ from utils.time_utils import (
     minutes_until_close,
     within_close_buffer,
 )
+from utils.logging_enhanced import get_logger, with_component, with_correlation_id, with_session_id
 
 # Opcional: silenciar barra de progreso de artifacts
 os.environ.setdefault("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
@@ -512,7 +513,7 @@ def main():
     ib = IB()
     open_positions: dict[str, dict] = {}
     closed_trades_df = pd.DataFrame()
-
+    session_id = f"trading_{datetime.utcnow():%Y%m%d_%H%M%S}"
     try:
         print("🔌 Conectando a Interactive Brokers...")
         ib.connect(S.ib_host, S.ib_port, clientId=int(time.time() % 1000))

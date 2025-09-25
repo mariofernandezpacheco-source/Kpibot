@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/04e0038d02bd49cd982940642d25754b/artifacts
+end_time: 1758785515186
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 04e0038d02bd49cd982940642d25754b
+run_name: popular-fawn-47
+run_uuid: 04e0038d02bd49cd982940642d25754b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758785515148
+status: 3
+tags: []
+user_id: Mario_user

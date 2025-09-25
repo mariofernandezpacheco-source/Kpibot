@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/b85ac98b6f9343a8b75ac72a4667b69c/artifacts
+end_time: 1758785627130
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: b85ac98b6f9343a8b75ac72a4667b69c
+run_name: APA_5mins_xgb_thr0.700_tp4x_sl2x_tl16
+run_uuid: b85ac98b6f9343a8b75ac72a4667b69c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758785626843
+status: 3
+tags: []
+user_id: Mario_user

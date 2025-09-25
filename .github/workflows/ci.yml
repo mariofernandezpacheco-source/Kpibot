@@ -21,7 +21,7 @@ jobs:
           poetry-version: "1.8.3"
 
       - name: Configure Poetry
-        run: poetry config virtualenvs.create true
+        run: poetry config_ virtualenvs.create true
 
       - name: Install deps
         run: poetry install --no-interaction

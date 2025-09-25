@@ -36,6 +36,94 @@ from engine.metrics import trading_metrics
 # --------------------------
 # Añadir esta función en RSH_Scenarios.py después de los imports:
 
+# En RSH_Scenarios.py, después de los imports:
+
+def ensure_model_trained(
+        ticker: str,
+        timeframe: str,
+        tp_mult: float,
+        sl_mult: float,
+        time_limit: int,
+        model_type: str,
+        feature_set: str,
+        days: None,
+        date_from: date_from,
+        date_to: date_to
+) -> bool:
+    """
+    Verifica si existe modelo entrenado válido. Si no, lo entrena automáticamente.
+    Retorna True si el modelo está listo para usar.
+    """
+    from TRN_Train import train_ticker
+    from pathlib import Path
+    import json
+
+    models_dir = Path(getattr(S, "models_path", "02_models"))
+    ticker_dir = models_dir / ticker.upper()
+    pipeline_path = ticker_dir / "pipeline.pkl"
+    meta_path = ticker_dir / "pipeline_meta.json"
+
+    # Verificar si existe modelo
+    if pipeline_path.exists() and meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text())
+
+            # Verificar compatibilidad de parámetros
+            compatible = (
+                    meta.get("tp_multiplier") == tp_mult and
+                    meta.get("sl_multiplier") == sl_mult and
+                    meta.get("time_limit_candles") == time_limit and
+                    meta.get("model_type") == model_type and
+                    meta.get("feature_set") == feature_set
+            )
+
+            if compatible:
+                print(f"MODELO - {ticker}: Modelo compatible encontrado, reutilizando")
+                return True
+            else:
+                print(f"MODELO - {ticker}: Modelo incompatible, re-entrenando...")
+        except Exception as e:
+            print(f"MODELO - {ticker}: Error leyendo metadata: {e}")
+
+    # Entrenar modelo
+    print(f"MODELO - {ticker}: Entrenando modelo automáticamente...")
+    try:
+        try:
+            mlflow.end_run()
+        except:
+            pass
+        overrides = {
+            "tp_multiplier": tp_mult,
+            "sl_multiplier": sl_mult,
+            "time_limit_candles": time_limit,
+            "model": model_type,
+            "feature_set": "all",
+            "days": days,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+
+        train_ticker(
+            ticker=ticker,
+            timeframe=timeframe,
+            overrides=overrides,
+            force_relabel=True,
+            clean=True,  # Sobrescribir modelo incompatible
+            print_stats=True
+        )
+
+        try:
+            mlflow.end_run()
+        except:
+            pass
+
+        print(f"MODELO - {ticker}: Entrenamiento completado exitosamente")
+        return True
+
+    except Exception as e:
+        print(f"MODELO - {ticker}: ERROR entrenando: {e}")
+        return False
+
 def analyze_temporal_coverage(df: pd.DataFrame, days_requested: int, ticker: str) -> dict:
     """
     Analiza la cobertura temporal de los datos vs lo solicitado.
@@ -298,17 +386,14 @@ def mlflow_setup():
     tracking_uri_cfg = getattr(S, "mlflow_tracking_uri", None)
     default_abs_uri = (ROOT / "mlruns").resolve().as_uri()
     try:
-        if tracking_uri_cfg:
-            if tracking_uri_cfg.startswith("file:"):
-                mlflow.set_tracking_uri(default_abs_uri)
-            else:
-                mlflow.set_tracking_uri(tracking_uri_cfg)
-        else:
+        if tracking_uri_cfg and tracking_uri_cfg.startswith("file:"):
             mlflow.set_tracking_uri(default_abs_uri)
+        else:
+            mlflow.set_tracking_uri(tracking_uri_cfg or default_abs_uri)
     except Exception:
         mlflow.set_tracking_uri(default_abs_uri)
 
-    mlflow.set_experiment(getattr(S, "mlflow_experiment", "PHIBOT"))
+    mlflow.set_experiment("PHIBOT")  # Experimento original para research
 
 def _is_finite(x) -> bool:
     try:
@@ -452,10 +537,54 @@ def optimize_per_combo(
         min_trades: int,
         couple_labeling_exec: bool,
 ) -> None:
+
+    calculated_days = days
+    if date_from and date_to:
+        from_date = pd.to_datetime(date_from)
+        to_date = pd.to_datetime(date_to)
+        calculated_days = (to_date - from_date).days
+        print(f"PERIODO - {ticker}: Calculado automáticamente {calculated_days} días ({date_from} a {date_to})")
+    elif days:
+        print(f"PERIODO - {ticker}: Usando {days} días especificados")
+    else:
+        calculated_days = 90  # Valor por defecto
+        print(f"PERIODO - {ticker}: Usando {calculated_days} días por defecto")
+
+
     """
     Genera UN RUN por cada combinación (thr, tp, sl, tl) y por cada modelo seleccionado.
     """
     mlflow_setup()
+
+    # 2) Construye grids
+    tp_multipliers = parse_csv_floats(tp_grid_csv) or [1, 2, 3]
+    sl_multipliers = parse_csv_floats(sl_grid_csv) or [1, 2, 3]
+    tl_grid = parse_csv_ints(tl_grid_csv) or [8, 12, 16]
+
+    # NUEVO: Entrenar modelos automáticamente
+    print(f"=== PREPARANDO MODELOS PARA {ticker} ===")
+
+    for model in models:
+        # Usar parámetros medios del grid para entrenamiento
+        tp_train = tp_multipliers[len(tp_multipliers) // 2] if tp_multipliers else 2.0
+        sl_train = sl_multipliers[len(sl_multipliers) // 2] if sl_multipliers else 1.5
+        tl_train = tl_grid[len(tl_grid) // 2] if tl_grid else 16
+
+        model_ready = ensure_model_trained(
+            ticker=ticker,
+            timeframe=timeframe,
+            tp_mult=tp_train,
+            sl_mult=sl_train,
+            time_limit=tl_train,
+            model_type=model,
+            feature_set=feature_set or "core",
+            days=days or 90,
+            date_from=date_from,
+            date_to=date_to
+        )
+
+        if not model_ready:
+            print(f"WARNING - {ticker}: No se pudo preparar modelo {model}, continuando con señales dummy")
 
     # 1) Ejecuta CV silenciosa por modelo (para OOF)
     thresholds_list = parse_csv_floats(thresholds_csv) or getattr(S, "cv_threshold_grid",
@@ -539,17 +668,11 @@ def optimize_per_combo(
             cv_res = {"metrics_mean": {"roc_auc": float('nan'), "pr_auc": float('nan')}}
         cv_by_model[model] = cv_res
 
-    # 2) Construye grids
-    tp_multipliers = parse_csv_floats(tp_grid_csv) or [1, 2, 3]
-    sl_multipliers = parse_csv_floats(sl_grid_csv) or [1, 2, 3]
-    tl_grid = parse_csv_ints(tl_grid_csv) or [8, 12, 16]
 
-    tp_grid, sl_grid = convert_atr_multipliers_to_pct(
-        ticker, timeframe, tp_multipliers, sl_multipliers, days
-    )
 
-    print(f"Usando TP grid (% decimal): {[f'{x:.4f}' for x in tp_grid]}")
-    print(f"Usando SL grid (% decimal): {[f'{x:.4f}' for x in sl_grid]}")
+
+
+
 
     # 3) Para cada modelo y cada combinación, crea UN RUN
     for model in models:
@@ -568,12 +691,9 @@ def optimize_per_combo(
         for thr in thr_iter:
             thr_val = float(thr)
 
-            for i, tp_mult in enumerate(tp_multipliers):
-                for j, sl_mult in enumerate(sl_multipliers):
+            for tp_mult in tp_multipliers:
+                for sl_mult in sl_multipliers:
                     for tl_ in tl_grid:
-                        # Usar los valores convertidos para el backtest
-                        tp_pct = tp_grid[i]
-                        sl_pct = sl_grid[j]
 
                         # CV para esta combinación (si acoplado)
                         if couple_labeling_exec:
@@ -595,8 +715,9 @@ def optimize_per_combo(
                         # Parámetros del backtest usando valores convertidos
                         params_bt = {
                             "threshold": float(thr_val),
-                            "tp_pct": float(tp_pct),  # valor convertido de ATR
-                            "sl_pct": float(sl_pct),  # valor convertido de ATR
+                            "tp_multiplier": float(tp_mult),  # Valor original 1,2,3
+                            "sl_multiplier": float(sl_mult),
+                            "use_atr_multipliers": True,
                             "time_limit": int(tl_),
                             "days": int(days) if days is not None else "",
                             "date_from": date_from or "", "date_to": date_to or "",
@@ -609,6 +730,10 @@ def optimize_per_combo(
                         }
 
                         # Ejecuta el backtest
+                        model_path = Path(f"02_models/{ticker.upper()}/pipeline.pkl")
+                        if not model_path.exists():
+                            print(f"SKIP - {ticker}: No hay modelo entrenado, saltando backtest")
+                            continue  # Saltar esta combinación completamente
                         bt = {}
                         bt_error = None
                         try:
@@ -659,17 +784,8 @@ def optimize_per_combo(
 
                         # === CREAR RUN MLFLOW ===
 
-                        for i, tp_mult in enumerate(tp_multipliers):
-                            for j, sl_mult in enumerate(sl_multipliers):
-                                for tl_ in tl_grid:
-                                    # Usar los valores convertidos para el backtest
-                                    tp_pct = tp_grid[i]
-                                    sl_pct = sl_grid[j]
-                        # Asegurar cierre de runs previos
-                        try:
-                            mlflow.end_run()
-                        except:
-                            pass
+
+
                         run_name = f"{ticker}_{timeframe}_{model}_thr{thr_val:.3f}_tp{tp_mult:.0f}x_sl{sl_mult:.0f}x_tl{int(tl_)}"
                         with mlflow.start_run(run_name=run_name, nested=False):
                             # Tags
@@ -691,8 +807,6 @@ def optimize_per_combo(
                             mlflow.log_params({
                                 "threshold": float(thr_val),
                                 "time_limit": int(tl_),
-                                "tp_pct": float(tp_pct),  # porcentaje real usado
-                                "sl_pct": float(sl_pct),  # porcentaje real usado
                                 "tp_multiplier": float(tp_mult),  # multiplicador original
                                 "sl_multiplier": float(sl_mult),  # multiplicador original
                                 "date_from": date_from or "", "date_to": date_to or "",
@@ -783,8 +897,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--features", default=None, help="CSV de features (engine.features); si se usa, ignora feature_set")
     p.add_argument("--feature_set", default="core", choices=["core","core+vol","all"], help="Usado si no pasas --features")
     p.add_argument("--thresholds", default=None, help="CSV de thresholds para CV y grid (ej. 0.6,0.7,0.8)")
-    p.add_argument("--tp_grid", default="0.003,0.005,0.008")
-    p.add_argument("--sl_grid", default="0.003,0.005,0.008")
+    p.add_argument("--tp_grid", default="1,2,3")  # En lugar de "0.003,0.005,0.008"
+    p.add_argument("--sl_grid", default="1,2,3")
     p.add_argument("--tl_grid", default="8,12,16")
     p.add_argument(
         "--couple_labeling_exec", action="store_true",

@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/040f0f88535349cf99bdab2ed90a6d1d/artifacts
+end_time: 1758734679642
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 040f0f88535349cf99bdab2ed90a6d1d
+run_name: thundering-ant-961
+run_uuid: 040f0f88535349cf99bdab2ed90a6d1d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758734679610
+status: 3
+tags: []
+user_id: Mario_user

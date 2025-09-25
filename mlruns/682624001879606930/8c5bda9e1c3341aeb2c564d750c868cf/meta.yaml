@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/8c5bda9e1c3341aeb2c564d750c868cf/artifacts
+end_time: 1758734683006
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 8c5bda9e1c3341aeb2c564d750c868cf
+run_name: train/AFL/5mins
+run_uuid: 8c5bda9e1c3341aeb2c564d750c868cf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758734679649
+status: 3
+tags: []
+user_id: Mario_user

@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/d15361dc330041a698e70f8031b2df90/artifacts
+end_time: 1758734502940
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: d15361dc330041a698e70f8031b2df90
+run_name: dapper-seal-112
+run_uuid: d15361dc330041a698e70f8031b2df90
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758734502909
+status: 3
+tags: []
+user_id: Mario_user

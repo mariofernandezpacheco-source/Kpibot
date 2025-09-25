@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/179800a932c442d7a51be78c683ca581/artifacts
+end_time: 1758782972157
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 179800a932c442d7a51be78c683ca581
+run_name: AMZN_5mins_xgb_thr0.550_tp4x_sl2x_tl16
+run_uuid: 179800a932c442d7a51be78c683ca581
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758782971936
+status: 3
+tags: []
+user_id: Mario_user

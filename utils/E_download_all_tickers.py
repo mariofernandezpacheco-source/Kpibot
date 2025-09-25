@@ -93,7 +93,7 @@ def _update_single_ticker(ticker: str, tf: str, bar_size: str, data_folder: Path
 
 
 def main():
-    # Parámetros desde config
+    # Parámetros desde config_
     tf = _normalize_timeframe(S.timeframe_default)  # '5mins' / '10mins'
     bar_size = _bar_size_for(tf)  # '5 mins' / '10 mins'
     data_folder = Path(S.data_path)

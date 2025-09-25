@@ -18,7 +18,7 @@ except Exception:
         logging_enabled = True
         logging_level = "INFO"
         logging_console_pretty = True
-        logging_dir = "03_logs/structured"
+        logging_dir = "LOG_logs/structured"
         logging_rotate_bytes = 50 * 1024 * 1024
         logging_backup_count = 20
         logging_include_tracebacks = True

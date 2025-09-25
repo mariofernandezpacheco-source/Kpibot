@@ -1,0 +1,88 @@
+_config_file: null
+_last_modified: null
+backtest:
+  bt_allow_short: true
+  cooldown_bars: 0
+data:
+  bar_size_by_tf:
+    15mins: 15 mins
+    1day: 1 day
+    1hour: 1 hour
+    1min: 1 min
+    5mins: 5 mins
+  base_path: DAT_data
+  csv_base_path: DAT_data/csv
+  max_gap_hours: 24
+  max_missing_days: 5
+  min_coverage_pct: 80.0
+  parquet_base_path: DAT_data/parquet
+  storage_backend: parquet
+  timeframe_default: 5mins
+  timeframes_available:
+  - 1min
+  - 5mins
+  - 15mins
+  - 1hour
+  - 1day
+logging:
+  console_output: true
+  correlation_id: true
+  date_format: '%Y-%m-%d %H:%M:%S'
+  file_output: true
+  level: INFO
+  log_dir: LOG_logs
+  log_format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  structured: true
+mlflow:
+  auto_log: true
+  experiment: PHIBOT
+  log_models: true
+  tracking_uri: file:./mlruns
+models:
+  cv_dir: logs/cv
+  cv_embargo: -1
+  cv_purge: -1
+  cv_scheme: expanding
+  cv_splits: 5
+  cv_test_size: 500
+  cv_threshold_grid:
+  - 0.55
+  - 0.6
+  - 0.65
+  - 0.7
+  - 0.75
+  - 0.8
+  - 0.85
+  - 0.9
+  feature_set: core
+  label_window: 5
+  model_type: xgb
+  models_path: 02_models
+  sl_multiplier: 2.0
+  threshold_default: 0.8
+  threshold_max: 0.95
+  threshold_min: 0.5
+  time_limit_candles: 16
+  tp_multiplier: 3.0
+system:
+  calendar: XNYS
+  config_path: config
+  cv_update_on_start: false
+  data_path: DAT_data
+  downloader_on_start: false
+  logs_path: logs
+  parquet_enabled: true
+  seed: 42
+  training_on_start: false
+trading:
+  allow_short: true
+  capital_per_trade: 1000.0
+  commission_per_trade: 0.35
+  ib_client_id: 1
+  ib_host: 127.0.0.1
+  ib_port: 7497
+  market_close_buffer_min: 30
+  max_daily_loss: 500.0
+  max_drawdown: 0.05
+  max_positions: 10
+  slippage_bps: 0.0

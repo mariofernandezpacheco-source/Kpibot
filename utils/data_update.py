@@ -58,7 +58,7 @@ def tf_token_upper(tf: str) -> str:
 
 
 def bar_size_for(tf: str) -> str:
-    # mapea tu config: S.bar_size_by_tf = {"5mins": "5 mins", ...}
+    # mapea tu config_: S.bar_size_by_tf = {"5mins": "5 mins", ...}
     return getattr(S, "bar_size_by_tf", {}).get(tf, "5 mins")
 
 

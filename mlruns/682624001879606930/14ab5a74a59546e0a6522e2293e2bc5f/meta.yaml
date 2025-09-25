@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/14ab5a74a59546e0a6522e2293e2bc5f/artifacts
+end_time: 1758735819578
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 14ab5a74a59546e0a6522e2293e2bc5f
+run_name: nimble-tern-339
+run_uuid: 14ab5a74a59546e0a6522e2293e2bc5f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758735819547
+status: 3
+tags: []
+user_id: Mario_user

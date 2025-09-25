@@ -43,7 +43,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from utils.A_data_loader import load_data
-from utils.B_feature_engineering import add_technical_indicators
+from utils.B_feature_engineering import add_technical_indicators, load_context_data
 from utils.C_label_generator import generate_triple_barrier_labels
 from utils.logging_cfg import get_logger
 from utils.schemas import LabelsSchema, OHLCVSchema, validate_df
@@ -128,57 +128,41 @@ def _slice_by_dates(df: pd.DataFrame, date_from: str | None, date_to: str | None
 
 
 def _feature_cols_for_b2(df: pd.DataFrame) -> list[str]:
-    prefer = [
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "atr_14",
-        "ret_1",
-        "ret_5",
-        "ma_5",
-        "ma_10",
-        "rsi_14",
-        "stoch_k",
-        "stoch_d",
-        "willr_14",
-        "bb_up",
-        "bb_mid",
-        "bb_low",
-    ]
-    return [c for c in prefer if c in df.columns]
+    """Devuelve todas las features técnicas disponibles, excluyendo OHLC básico"""
+    # Excluir columnas que no son features
+    exclude_cols = {
+        'open', 'high', 'low', 'close',  # Precios básicos
+        'date', 'timestamp', 'index',  # Columnas de tiempo/índice
+        'label', 'side', 'ret_fwd',  # Labels y targets
+        'proba_up', 'proba_down', 'proba_hold', 'signal', 'pred'  # Predicciones
+    }
 
+    # Incluir todas las columnas técnicas
+    feature_cols = [col for col in df.columns
+                    if col not in exclude_cols
+                    and not col.startswith('Unnamed')]
+
+    print(f"Features detectadas automáticamente: {len(feature_cols)}")
+    print(f"Lista: {feature_cols}")
+
+    return feature_cols
 
 FEATURE_SETS: dict[str, list[str] | None] = {
     "core": [
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "atr_14",
-        "ret_1",
-        "ma_5",
-        "ma_10",
-        "rsi_14",
+        "volume", "atr_14", "rsi_14", "stoch_k", "stoch_d",
+        "willr_14", "macd_diff", "trend_adx_14"
     ],
     "core+vol": [
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "atr_14",
-        "ret_1",
-        "ret_5",
-        "ma_5",
-        "ma_10",
-        "rsi_14",
-        "bb_up",
-        "bb_low",
+        "volume", "atr_14", "rsi_14", "stoch_k", "stoch_d", "willr_14",
+        "macd_diff", "trend_adx_14", "trend_cci_20", "bb_bb_high", "bb_bb_low",
+        "obv", "mfi_14", "volume_avg_20", "roc_10"
     ],
-    "all": None,  # usa todas las columnas calculadas en add_technical_indicators/_feature_cols_for_b2
+    "technical": [
+        "volume", "atr_14", "rsi_14", "stoch_k", "stoch_d", "willr_14",
+        "macd_diff", "trend_adx_14", "trend_cci_20", "bb_bb_high", "bb_bb_low",
+        "obv", "mfi_14", "volume_avg_20", "roc_10", "vix_roc_5", "spy_rsi_14", "relative_strength"
+    ],
+    "all": None,
 }
 
 
@@ -284,13 +268,13 @@ def _mlflow_setup():
     uri = os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns")
     exp = os.getenv("MLFLOW_EXPERIMENT", "PHIBOT")
     mlflow.set_tracking_uri(uri)
-    mlflow.set_experiment(exp)
+    mlflow.set_experiment("PHIBOT_TRAINING")
 
 
 def _log_config_and_fingerprints():
-    cfg = CONFIG_DIR / "config.yaml"
+    cfg = CONFIG_DIR / "config_.yaml"
     if cfg.exists():
-        mlflow.log_artifact(str(cfg), artifact_path="config")
+        mlflow.log_artifact(str(cfg), artifact_path="config_")
         mlflow.set_tag("config_sha256", _sha256(cfg))
     if Path(DATA_DIR).exists():
         mlflow.set_tag("data_dir", str(DATA_DIR))
@@ -366,20 +350,36 @@ def train_ticker(
 
     # 1) Cargar datos
     df = load_data(ticker=ticker, timeframe=timeframe, use_local=True, base_path=DATA_DIR)
+    if DATE_FROM or DATE_TO:
+        df = _slice_by_dates(df, DATE_FROM, DATE_TO)
+        print(f"[{ticker}] Filtro de fechas aplicado: {DATE_FROM} a {DATE_TO}")
+    else:
+        df = _recent_slice(df, DAYS)
+        print(f"[{ticker}] Usando últimos {DAYS} días")
     if df.empty:
         raise RuntimeError(f"[{ticker}] No hay datos.")
+
     df = validate_df(df, OHLCVSchema, name="OHLCV(training/input)")
     df = ensure_atr14(df)
 
-    # Filtro temporal
-    df = _recent_slice(df, DAYS)
-    df = _slice_by_dates(df, DATE_FROM, DATE_TO)
+    if DATE_FROM and DATE_TO:
+        DAYS = (pd.to_datetime(DATE_TO) - pd.to_datetime(DATE_FROM)).days
+        print(f"[{ticker}] Días calculados del período: {DAYS}")
 
     # 2) Enriquecer
     try:
+        from pathlib import Path
+        context_data = load_context_data(timeframe, Path("DAT_data"))
+        df = add_technical_indicators(df, context_data)
+        print(f"[{ticker}] Contexto VIX/SPY cargado en entrenamiento")
+    except Exception as e:
+        print(f"[{ticker}] Error cargando contexto en entrenamiento: {e}")
         df = add_technical_indicators(df)
-    except Exception:
-        pass
+
+    # 2.5) NUEVO: Extraer features ANTES del etiquetado
+    feat_all = _feature_cols_for_b2(df)
+    if not feat_all:
+        raise ValueError(f"[{ticker}] Sin columnas de features válidas tras ingeniería.")
 
     # 3) Etiquetado
     if force_relabel or ("label" not in df.columns):
@@ -442,7 +442,15 @@ def train_ticker(
     except Exception:
         git = "unknown"
     mlflow.set_tag("git_commit", git)
-    mlflow.set_tag("package_version", imd.version("phibot"))
+    try:
+        mlflow.set_tag("package_version", imd.version("phibot"))
+    except:
+        mlflow.set_tag("package_version", "dev")
+
+    try:
+        mlflow.end_run()
+    except:
+        pass
 
     with mlflow.start_run(run_name=run_name):
         # tags/params
@@ -486,10 +494,36 @@ def train_ticker(
         # --- probabilidades in-sample + métricas
         try:
             y_proba = pipe.predict_proba(X)
-            proba_pos = (
-                y_proba[:, -1] if (y_proba.ndim == 2 and y_proba.shape[1] > 1) else y_proba.ravel()
-            )
-            y_bin = (y == (y.max())).astype(int).values
+
+            # NUEVO: Generar las 3 probabilidades según el número de clases
+            if y_proba.shape[1] == 3:  # 3 clases: down(0), hold(1), up(2)
+                # Exportar las 3 probabilidades para uso posterior
+                proba_down = y_proba[:, 0]  # Clase -1 (bajista)
+                proba_hold = y_proba[:, 1]  # Clase 0 (lateral)
+                proba_up = y_proba[:, 2]  # Clase 1 (alcista)
+
+                # Para métricas, usar proba_up vs resto (binario)
+                proba_pos = proba_up
+                y_bin = (y == (y.max())).astype(int).values
+
+                # Log de distribución de probabilidades
+                print(
+                    f"[{ticker}] Proba promedio - Down: {proba_down.mean():.3f}, Hold: {proba_hold.mean():.3f}, Up: {proba_up.mean():.3f}")
+
+            elif y_proba.shape[1] == 2:  # 2 clases: down(0), up(1)
+                proba_down = y_proba[:, 0]
+                proba_up = y_proba[:, 1]
+                proba_hold = np.zeros_like(proba_up)  # No hay clase hold
+
+                proba_pos = proba_up
+                y_bin = (y == (y.max())).astype(int).values
+
+                print(f"[{ticker}] Proba promedio - Down: {proba_down.mean():.3f}, Up: {proba_up.mean():.3f}")
+
+            else:
+                # Fallback para casos edge
+                proba_pos = y_proba.ravel() if y_proba.ndim > 1 else y_proba
+                y_bin = (y == (y.max())).astype(int).values
 
             roc_auc = float(skmetrics.roc_auc_score(y_bin, proba_pos))
             precision, recall, _ = skmetrics.precision_recall_curve(y_bin, proba_pos)
@@ -584,7 +618,7 @@ def train_ticker(
         register = bool(int(os.getenv("USE_MLFLOW_REGISTRY", "0")))
         info = mlflow.sklearn.log_model(
             sk_model=pipe,
-            name="model",
+            artifact_path="model",  # Usar artifact_path en lugar de name
             signature=sig,
             input_example=input_example,
             registered_model_name=(reg_name if register else None),
@@ -617,18 +651,24 @@ def train_ticker(
             clf = pipe.named_steps["clf"]
             features = list(X.columns)
             imp_df = None
-            if hasattr(clf, "feature_importances_"):
+            if hasattr(clf, "feature_importances_"):  # XGBoost, RandomForest
                 imp_df = pd.DataFrame({"feature": features, "importance": clf.feature_importances_})
-            elif hasattr(clf, "coef_"):
+            elif hasattr(clf, "coef_"):  # LogisticRegression
                 coef = np.ravel(clf.coef_) if clf.coef_.ndim == 2 else clf.coef_
-                imp_df = pd.DataFrame(
-                    {"feature": features, "coef": coef, "importance": np.abs(coef)}
-                )
+                imp_df = pd.DataFrame({"feature": features, "coef": coef, "importance": np.abs(coef)})
+
             if imp_df is not None:
                 imp_df = imp_df.sort_values("importance", ascending=False)
                 tmp_path = Path(tempfile.mkdtemp()) / "feature_importance.csv"
                 imp_df.to_csv(tmp_path, index=False)
                 mlflow.log_artifact(str(tmp_path), artifact_path="importance")
+
+            if 'proba_up' in locals():
+                meta_dict.update({
+                    "has_three_classes": y_proba.shape[1] == 3,
+                    "proba_columns": ["proba_down", "proba_hold", "proba_up"] if y_proba.shape[1] == 3 else [
+                        "proba_down", "proba_up"]
+                })
         except Exception:
             pass
 

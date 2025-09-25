@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from utils.B_feature_engineering import add_technical_indicators, load_context_data
 
 import numpy as np
 import pandas as pd
@@ -26,176 +27,259 @@ except Exception:
 @dataclass
 class BTParams:
     threshold: float = 0.80
-    tp_pct: float = 0.005  # 0.5% → 0.005
+    tp_multiplier: float = 2.0  # Nuevo
+    sl_multiplier: float = 1.5  # Nuevo
+    use_atr_multipliers: bool = True  # Nuevo
+    time_limit: int = 16  # Nuevo
+    tp_pct: float = 0.005  # Mantener para compatibilidad
     sl_pct: float = 0.005
     cooldown_bars: int = 0
     allow_short: bool = _ALLOW_SHORT
-    slippage_bps: float = 0.0  # 1bp=0.01%; 10bps=0.1%
+    slippage_bps: float = 0.0
     capital_per_trade: float = _CAPITAL
     commission_per_trade: float = _COMMISSION
 
-
+def _compute_atr14(df: pd.DataFrame) -> pd.Series:
+    """Calcula ATR(14) si no existe"""
+    prev_close = df["close"].shift(1)
+    tr1 = (df["high"] - df["low"]).abs()
+    tr2 = (df["high"] - prev_close).abs()
+    tr3 = (df["low"] - prev_close).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.ewm(alpha=1/14, adjust=False).mean()
 # -----------------------------------------------------------------------------
 # Carga de datos/señales (ADÁPTALO A TU PIPELINE)
 # -----------------------------------------------------------------------------
 def load_ohlc_and_signals(ticker: str, timeframe: str, params: dict[str, Any]) -> pd.DataFrame:
     """
-    Devuelve un DataFrame con:
-      index: datetime (ordenado)
-      columnas: 'open','high','low','close'  (requeridas)
-                y al menos una de: 'signal' (-1/0/1) | 'pred' (-1/0/1) |
-                                   'proba_up' (0..1) | 'proba' (0..1)
-
-
+    Devuelve un DataFrame con índice datetime y columnas OHLC + señales
     """
-
     print(f"DEBUG LOAD - ticker: {ticker}, timeframe: {timeframe}")
     print(f"DEBUG LOAD - params keys: {list(params.keys())}")
 
-    # Intenta cargar desde tu sistema de datos
-
-    # OPCIÓN 2: Cargar desde parquet directo
     try:
         from pathlib import Path
         import settings
 
-        parquet_base = Path(getattr(settings.S, "parquet_base_path",
-                                    Path(settings.S.data_path) / "parquet"))
-
-        # Esquema: parquet/ohlcv/ticker=AAPL_5MINS/date=2024-XX-XX/data.parquet
-        tf_up = timeframe.replace(" ", "").upper()
-        ticker_dir = parquet_base / "ohlcv" / f"ticker={ticker}_{tf_up}"
-
+        parquet_base = Path("DAT_data/parquet")
+        ticker_dir = parquet_base / "ohlcv" / f"ticker={ticker}"
         print(f"DEBUG LOAD - Buscando en: {ticker_dir}")
 
-        if ticker_dir.exists():
-            # Busca archivos parquet más recientes
-            parquet_files = list(ticker_dir.rglob("*.parquet"))
-            if parquet_files:
-                print(f"DEBUG LOAD - Encontrados {len(parquet_files)} archivos parquet")
-
-                # Carga los últimos N días de archivos
-                parquet_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-
-                dfs = []
-                for pf in parquet_files[:5]:  # Últimos 5 archivos
-                    try:
-                        df_part = pd.read_parquet(pf)
-                        dfs.append(df_part)
-                    except Exception as e:
-                        print(f"DEBUG LOAD - Error leyendo {pf}: {e}")
-
-                if dfs:
-                    df = pd.concat(dfs, ignore_index=True)
-                    df = df.sort_values('date').drop_duplicates()
-
-                    # Aplicar filtro de días si viene en params
-                    days = params.get('days')
-                    if days and 'date' in df.columns:
-                        cutoff = pd.to_datetime(df['date']).max() - pd.Timedelta(days=days)
-                        df = df[df['date'] >= cutoff]
-
-                    print(f"DEBUG LOAD - Parquet cargado: {len(df)} filas")
-
-                    # Generar señales dummy si no existen
-                    signal_cols = ['signal', 'pred', 'proba_up', 'proba']
-                    if not any(col in df.columns for col in signal_cols):
-                        np.random.seed(42)
-                        df['proba_up'] = np.random.uniform(0.4, 0.7, len(df))
-                        print("DEBUG LOAD - Señales dummy añadidas")
-                        # En backtest_runner.py, en la función load_ohlc_and_signals,
-                        # reemplaza la sección de manejo de fechas con:
-
-                        # CRÍTICO: Manejar timestamps correctamente
-                        if 'date' in df.columns:
-                            print(f"DEBUG LOAD - Tipo original de 'date': {df['date'].dtype}")
-                            print(f"DEBUG LOAD - Muestra de valores: {df['date'].head()}")
-
-                            # Si ya es timestamp, convertir a datetime explícitamente
-                            if df['date'].dtype == 'int64':
-                                # Timestamp Unix (segundos o nanosegundos)
-                                try:
-                                    # Probar primero nanosegundos (más común en pandas)
-                                    df['date'] = pd.to_datetime(df['date'], unit='ns', utc=True)
-                                except:
-                                    try:
-                                        # Si falla, probar segundos
-                                        df['date'] = pd.to_datetime(df['date'], unit='s', utc=True)
-                                    except:
-                                        # Fallback: conversión estándar
-                                        df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
-                            else:
-                                # Ya es datetime-like, solo asegurar que es UTC
-                                df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
-
-                            print(f"DEBUG LOAD - Tipo después de conversión: {df['date'].dtype}")
-
-                            # Eliminar filas con fechas inválidas
-                            original_len = len(df)
-                            df = df.dropna(subset=['date'])
-                            if len(df) < original_len:
-                                print(f"DEBUG LOAD - Eliminadas {original_len - len(df)} filas con fechas inválidas")
-
-                            # ESTABLECER COMO ÍNDICE
-                            df = df.set_index('date')
-                            df = df.sort_index()
-
-                            print(f"DEBUG LOAD - Índice final: {type(df.index)}")
-                            print(f"DEBUG LOAD - Tipo de índice: {df.index.dtype}")
-                            if len(df) > 0:
-                                print(f"DEBUG LOAD - Rango de fechas: {df.index[0]} a {df.index[-1]}")
-                        else:
-                            print("DEBUG LOAD - ERROR: No hay columna 'date' en los datos")
-                            return pd.DataFrame()  # Sin fechas no podemos continua
-
-                    return df
-
-
-
-
-        else:
+        if not ticker_dir.exists():
             print(f"DEBUG LOAD - No existe directorio: {ticker_dir}")
+            return pd.DataFrame()
+
+        # Buscar archivos parquet más recientes
+        parquet_files = list(ticker_dir.rglob("*.parquet"))
+        if not parquet_files:
+            print("DEBUG LOAD - No hay archivos parquet")
+            return pd.DataFrame()
+
+        print(f"DEBUG LOAD - Encontrados {len(parquet_files)} archivos parquet")
+
+        # NUEVO: Filtrar archivos por fecha si hay parámetros de fecha
+        filtered_files = []
+        if params.get('date_from') or params.get('date_to'):
+            date_from = pd.to_datetime(params.get('date_from')) if params.get('date_from') else None
+            date_to = pd.to_datetime(params.get('date_to')) if params.get('date_to') else None
+            print(f"DEBUG LOAD - Filtrando archivos entre {date_from} y {date_to}")
+
+            for pf in parquet_files:
+                try:
+                    # Extraer fecha del path: .../date=2025-07-16/...
+                    date_str = pf.parent.name.replace('date=', '')
+                    file_date = pd.to_datetime(date_str)
+
+                    if date_from and file_date < date_from:
+                        continue
+                    if date_to and file_date > date_to:
+                        continue
+
+                    filtered_files.append(pf)
+                except:
+                    continue
+
+            parquet_files = filtered_files
+            print(f"DEBUG LOAD - {len(parquet_files)} archivos después del filtro de fechas")
+        else:
+            # Sin filtro de fechas, usar últimos archivos por modificación
+            parquet_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            parquet_files = parquet_files[:10]
+            print(f"DEBUG LOAD - Usando últimos 10 archivos por fecha de modificación")
+
+        if not parquet_files:
+            print("DEBUG LOAD - No hay archivos válidos después del filtro")
+            return pd.DataFrame()
+
+        # Cargar archivos filtrados
+        dfs = []
+        for pf in parquet_files:
+            try:
+                print(f"DEBUG LOAD - Leyendo archivo: {pf}")
+                df_part = pd.read_parquet(pf)
+                print(f"DEBUG LOAD - Archivo leído: {len(df_part)} filas, columnas: {list(df_part.columns)}")
+                dfs.append(df_part)
+            except Exception as e:
+                print(f"DEBUG LOAD - Error leyendo {pf}: {e}")
+
+        if not dfs:
+            print("DEBUG LOAD - No se cargaron archivos válidos")
+            return pd.DataFrame()
+
+        # Concatenar y procesar
+        print(f"DEBUG LOAD - Concatenando {len(dfs)} DataFrames...")
+        df = pd.concat(dfs, ignore_index=True)
+        print(f"DEBUG LOAD - Concatenación exitosa: {len(df)} filas")
+        print(f"DEBUG LOAD - Columnas disponibles: {list(df.columns)}")
+
+        # Convertir timestamp a date
+        if 'timestamp' in df.columns and 'date' not in df.columns:
+            print("DEBUG LOAD - Convirtiendo 'timestamp' a 'date'")
+            df['date'] = df['timestamp']
+
+        # Procesar fechas
+        if 'date' not in df.columns:
+            print("DEBUG LOAD - ERROR: No hay columna 'date'")
+            return pd.DataFrame()
+
+        print(f"DEBUG LOAD - Procesando fechas...")
+        df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
+        df = df.dropna(subset=['date'])
+        df = df.sort_values('date').drop_duplicates()
+        print(f"DEBUG LOAD - Después de ordenar: {len(df)} filas")
+
+        # Filtro de días
+        days = params.get('days')
+        if days and days > 0:
+            print(f"DEBUG LOAD - Aplicando filtro de {days} días...")
+            cutoff = df['date'].max() - pd.Timedelta(days=days)
+            df = df[df['date'] >= cutoff]
+            print(f"DEBUG LOAD - Después del filtro: {len(df)} filas")
+
+        # Establecer índice
+
+        print(f"DEBUG LOAD - Índice establecido. Rango: {df.index[0]} a {df.index[-1]}")
+
+
+        print(f"DEBUG LOAD - DataFrame final: {len(df)} filas, {len(df.columns)} columnas")
+
+        context_data = load_context_data(timeframe, Path("DAT_data"))
+        df = add_technical_indicators(df, context_data)
+        try:
+            print("DEBUG LOAD - Cargando contexto (VIX, SPY)...")
+            context_data = load_context_data(timeframe, Path("DAT_data"))
+            print(f"DEBUG LOAD - Contexto cargado: {list(context_data.keys())}")
+
+            print("DEBUG LOAD - Aplicando ingeniería de features...")
+            df = add_technical_indicators(df, context_data)
+            print(f"DEBUG LOAD - Features aplicados. Nuevas columnas: {len(df.columns)}")
+
+        except Exception as e:
+            print(f"DEBUG LOAD - Error con contexto/features: {e}")
+        df = df.set_index('date').sort_index()
+        print(f"DEBUG LOAD - Índice establecido. Rango: {df.index[0]} a {df.index[-1]}")
+
+        # En load_ohlc_and_signals(), reemplazar la sección de señales dummy:
+
+        # Generar señales: cargar modelo entrenado o usar dummy como fallback
+        signal_cols = ['signal', 'pred', 'proba_up', 'proba']
+        if not any(col in df.columns for col in signal_cols):
+            model_loaded = False
+
+            try:
+                import joblib
+                import json
+
+                model_path = Path(f"02_models/{ticker.upper()}/pipeline.pkl")
+                meta_path = Path(f"02_models/{ticker.upper()}/pipeline_meta.json")
+
+                if model_path.exists() and meta_path.exists():
+                    print(f"DEBUG LOAD - Cargando modelo: {model_path}")
+
+                    # Cargar modelo y metadata
+                    pipeline = joblib.load(model_path)
+                    meta = json.loads(meta_path.read_text())
+                    expected_features = meta.get('features', [])
+
+                    print(f"DEBUG LOAD - Features esperadas: {len(expected_features)}")
+
+                    # Verificar features disponibles
+                    available_features = [f for f in expected_features if f in df.columns]
+                    coverage = len(available_features) / len(expected_features) if expected_features else 0
+
+                    print(f"DEBUG LOAD - Cobertura de features: {coverage:.2%}")
+
+                    if coverage >= 0.8:  # 80% mínimo
+                        # Preparar datos para predicción
+                        X = df[available_features].fillna(0)
+
+                        # Generar predicciones reales
+                        proba = pipeline.predict_proba(X)
+                        df['proba_up'] = proba[:, 1] if proba.shape[1] > 1 else proba[:, 0]
+
+                        print(f"DEBUG LOAD - Modelo aplicado exitosamente")
+                        print(
+                            f"DEBUG LOAD - Rango probabilidades: {df['proba_up'].min():.3f} - {df['proba_up'].max():.3f}")
+                        model_loaded = True
+                    else:
+                        print(f"DEBUG LOAD - Cobertura insuficiente ({coverage:.1%}), usando dummy")
+                else:
+                    print(f"DEBUG LOAD - No existe modelo para {ticker}")
+
+            except Exception as e:
+                print(f"DEBUG LOAD - Error cargando modelo: {e}")
+
+            # Fallback a señales dummy solo si no se cargó modelo
+            if not model_loaded:
+                print(f"DEBUG LOAD - ERROR: No hay modelo entrenado para {ticker}, saltando")
+                return pd.DataFrame()  # DataFrame vacío - forzar skip
+
+
+
+        return df
+
 
     except Exception as e:
-        print(f"DEBUG LOAD - Error con parquet: {e}")
-
-    print("DEBUG LOAD - RETORNANDO DATAFRAME VACÍO")
-    return pd.DataFrame()  # DataFrame vacío si todo falla
+        print(f"DEBUG LOAD - Error específico: {e}")
+        import traceback
+        traceback.print_exc()
+        return pd.DataFrame()
 
 
 def _generate_signals(df: pd.DataFrame, p: BTParams) -> pd.Series:
-    """
-    Deriva señales -1/0/1 desde columnas comunes:
-      - 'signal' → la usamos tal cual
-      - 'pred'   → la usamos tal cual
-      - 'proba_up' o 'proba' → long si >= threshold; short si <= 1-thr (si allow_short)
-      - fallback: sin señales → todo 0
-    """
+    print(f"DEBUG SIGNALS - Columnas proba: {[col for col in df.columns if 'proba' in col]}")
+    print(f"DEBUG SIGNALS - allow_short: {p.allow_short}, threshold: {p.threshold}")
     if "signal" in df.columns:
-        sig = df["signal"].clip(-1, 1).fillna(0)
-        return sig.astype(int)
+        return df["signal"].clip(-1, 1).fillna(0).astype(int)
 
     if "pred" in df.columns:
-        sig = df["pred"].clip(-1, 1).fillna(0)
-        return sig.astype(int)
+        return df["pred"].clip(-1, 1).fillna(0).astype(int)
 
     thr = float(p.threshold)
-    if "proba_up" in df.columns:
+
+    # NUEVO: Manejo de 3 probabilidades
+    if all(col in df.columns for col in ["proba_up", "proba_down", "proba_hold"]):
+        # Caso ideal: 3 probabilidades explícitas
+        long_signal = (df["proba_up"] >= thr).astype(int)
+        short_signal = (df["proba_down"] >= thr).astype(int) * -1 if p.allow_short else 0
+        # proba_hold resulta en signal = 0 (no acción)
+
+        sig = long_signal + short_signal
+        return sig.clip(-1, 1)
+
+    elif "proba_up" in df.columns:
+        # Caso actual: solo proba_up
+        # Interpretar como: alto = long, bajo = short, medio = hold
         up = df["proba_up"].astype(float)
-        long = (up >= thr).astype(int)
-        short = ((up <= 1.0 - thr).astype(int) * -1) if p.allow_short else 0
-        sig = long + short
-        sig = sig.clip(-1, 1)
-        return sig
 
-    if "proba" in df.columns:
-        up = df["proba"].astype(float)
         long = (up >= thr).astype(int)
-        short = ((up <= 1.0 - thr).astype(int) * -1) if p.allow_short else 0
-        sig = long + short
-        sig = sig.clip(-1, 1)
-        return sig
+        short = (up <= (1.0 - thr)).astype(int) * -1 if p.allow_short else 0
+        # Zona media (1-thr < proba_up < thr) = hold (signal = 0)
 
+        sig = long + short
+        return sig.clip(-1, 1)
+
+    # Fallback: sin señales
     return pd.Series(0, index=df.index, name="signal")
 
 
@@ -204,22 +288,37 @@ def _generate_signals(df: pd.DataFrame, p: BTParams) -> pd.Series:
 # -----------------------------------------------------------------------------
 def _simulate(df: pd.DataFrame, sig: pd.Series, p: BTParams) -> tuple[pd.Series, pd.DataFrame]:
     """
-    Ejecuta backtest discreto a cierre de barra:
-      - abre en el 'close' de la barra donde aparece la señal y no hay posición,
-      - aplica TP/SL con 'high/low' intra-bar en las barras siguientes,
-      - cierra al final del día si sigue abierta,
-      - respeta cooldown_bars antes de aceptar nueva entrada,
-      - 1 posición a la vez, sin solapes.
+    Ejecuta backtest discreto a cierre de barra...
     """
+    if 'atr_14' not in df.columns:
+        df = df.copy()
+        prev_close = df["close"].shift(1)
+        tr1 = (df["high"] - df["low"]).abs()
+        tr2 = (df["high"] - prev_close).abs()
+        tr3 = (df["low"] - prev_close).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        df["atr_14"] = tr.ewm(alpha=1/14, adjust=False).mean()
+
     required = {"open", "high", "low", "close"}
     if not required.issubset(set(df.columns)):
-        # No hay OHLC → equity vacía, trades vacíos
         return pd.Series(dtype="float64"), pd.DataFrame()
 
-    # Orden y limpieza
-    df = df.copy()
+    # NUEVO: Añadir warmup period aquí
+    warmup_bars = 20  # Saltar primeras 20 barras para estabilizar indicadores
+    if len(df) <= warmup_bars:
+        print(f"DEBUG - Dataset muy pequeño ({len(df)} barras), no se puede aplicar warmup")
+        df_warmup = df
+        sig_warmup = sig
+    else:
+        print(f"DEBUG - Aplicando warmup de {warmup_bars} barras, dataset: {len(df)} -> {len(df) - warmup_bars}")
+        df_warmup = df.iloc[warmup_bars:]
+        sig_warmup = sig.iloc[warmup_bars:]
+
+    # Continuar con df_warmup y sig_warmup en lugar de df y sig
+    df = df_warmup.copy()
     df = df.sort_index()
-    sig = sig.reindex(df.index).fillna(0).astype(int)
+    sig = sig_warmup.reindex(df.index).fillna(0).astype(int)
+
 
     equity = []
     trades = []
@@ -232,8 +331,7 @@ def _simulate(df: pd.DataFrame, sig: pd.Series, p: BTParams) -> tuple[pd.Series,
 
     capital = float(p.capital_per_trade)
     slip = float(p.slippage_bps) / 10000.0  # bps → pct
-    tp_pct = float(p.tp_pct)
-    sl_pct = float(p.sl_pct)
+
 
     last_day = None
     eq_val = capital  # equity local del trade; exportaremos curva acumulada normalizada
@@ -289,12 +387,19 @@ def _simulate(df: pd.DataFrame, sig: pd.Series, p: BTParams) -> tuple[pd.Series,
                         entry_time = ts
                         shares = sh
                         # Definimos barreras
-                        if position == 1:
-                            tp_level = entry_price * (1 + tp_pct)
-                            sl_level = entry_price * (1 - sl_pct)
+                        if p.use_atr_multipliers:
+                            atr_at_entry = df.loc[ts, 'atr_14'] if ts in df.index else df['atr_14'].iloc[-1]
+                            if position == 1:
+                                tp_level = entry_price + (atr_at_entry * p.tp_multiplier)
+                                sl_level = entry_price - (atr_at_entry * p.sl_multiplier)
+                            else:
+                                tp_level = entry_price - (atr_at_entry * p.tp_multiplier)
+                                sl_level = entry_price + (atr_at_entry * p.sl_multiplier)
                         else:
-                            tp_level = entry_price * (1 - tp_pct)
-                            sl_level = entry_price * (1 + sl_pct)
+                            # Fallback a porcentajes fijos
+                            if position == 1:
+                                tp_level = entry_price * (1 + p.tp_pct)
+                                sl_level = entry_price * (1 - p.sl_pct)
                 # si no abre, seguimos
 
         else:
@@ -459,8 +564,9 @@ def run_backtest_for_ticker(
     try:
         bt_params = BTParams(
             threshold=float(params.get("threshold", 0.80)),
-            tp_pct=float(params.get("tp_pct", 0.005)),
-            sl_pct=float(params.get("sl_pct", 0.005)),
+            tp_multiplier=float(params.get("tp_multiplier", 2.0)),  # Nuevo
+            sl_multiplier=float(params.get("sl_multiplier", 1.5)),
+            use_atr_multipliers=bool(params.get("use_atr_multipliers", True)),
             cooldown_bars=int(params.get("cooldown_bars", 0)),
             allow_short=bool(params.get("allow_short", _ALLOW_SHORT)),
             slippage_bps=float(params.get("slippage_bps", 0.0)),
@@ -468,7 +574,7 @@ def run_backtest_for_ticker(
             commission_per_trade=float(params.get("commission_per_trade", _COMMISSION)),
         )
         print(
-            f"BACKTEST DEBUG - Parámetros BT: threshold={bt_params.threshold}, tp={bt_params.tp_pct}, sl={bt_params.sl_pct}")
+            f"BACKTEST DEBUG - Parámetros BT: threshold={bt_params.threshold}, tp_mult={bt_params.tp_multiplier}, sl_mult={bt_params.sl_multiplier}")
 
         df = (
             df_override if df_override is not None
@@ -490,6 +596,8 @@ def run_backtest_for_ticker(
             return {"metrics": {}, "equity": pd.Series(dtype="float64"), "trades": pd.DataFrame()}
 
         sig = _generate_signals(df, bt_params)
+
+
         print(f"BACKTEST DEBUG - Señales generadas: {len(sig)} valores")
         print(f"BACKTEST DEBUG - Distribución de señales: {sig.value_counts().to_dict()}")
 

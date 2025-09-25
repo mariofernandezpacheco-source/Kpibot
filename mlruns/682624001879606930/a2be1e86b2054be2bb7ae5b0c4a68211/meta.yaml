@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/a2be1e86b2054be2bb7ae5b0c4a68211/artifacts
+end_time: 1758783801937
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: a2be1e86b2054be2bb7ae5b0c4a68211
+run_name: bald-dolphin-161
+run_uuid: a2be1e86b2054be2bb7ae5b0c4a68211
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758783801900
+status: 3
+tags: []
+user_id: Mario_user

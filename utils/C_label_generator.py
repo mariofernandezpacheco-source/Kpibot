@@ -22,6 +22,13 @@ from utils.schemas import LabelsSchema, OHLCVSchema, validate_df
 # ==========================
 # Helpers internos
 # ==========================
+def ensure_atr14(df: pd.DataFrame) -> pd.DataFrame:
+    """Alias público para _compute_atr14"""
+    if "atr_14" not in df.columns:
+        df = df.copy()
+        df["atr_14"] = _compute_atr14(df)
+    return df
+
 def _compute_atr14(df: pd.DataFrame, *, high="high", low="low", close="close") -> pd.Series:
     """
     ATR(14) determinista (Wilder ≈ EMA con alpha=1/14).

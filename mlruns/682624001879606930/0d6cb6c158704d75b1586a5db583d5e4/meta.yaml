@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/0d6cb6c158704d75b1586a5db583d5e4/artifacts
+end_time: 1758735623908
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 0d6cb6c158704d75b1586a5db583d5e4
+run_name: popular-jay-761
+run_uuid: 0d6cb6c158704d75b1586a5db583d5e4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758735623877
+status: 3
+tags: []
+user_id: Mario_user

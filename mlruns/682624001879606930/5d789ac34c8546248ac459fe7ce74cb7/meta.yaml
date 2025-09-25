@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Mario_user/Documents/BOTRADING/mlruns/682624001879606930/5d789ac34c8546248ac459fe7ce74cb7/artifacts
+end_time: 1758735248298
+entry_point_name: ''
+experiment_id: '682624001879606930'
+lifecycle_stage: active
+run_id: 5d789ac34c8546248ac459fe7ce74cb7
+run_name: train/ABNB/5mins
+run_uuid: 5d789ac34c8546248ac459fe7ce74cb7
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758735243618
+status: 3
+tags: []
+user_id: Mario_user
